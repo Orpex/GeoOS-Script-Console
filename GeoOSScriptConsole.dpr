@@ -5,8 +5,7 @@ program GeoOSScriptConsole;
 {$R *.res}
 
 uses
-  SysUtils,
-  SevenZipVCL in 'SevenZipVCL.pas';
+  SysUtils;
 
 begin
   writeln('Starting...');
