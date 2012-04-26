@@ -126,4 +126,5 @@ begin
   reg.Free; //release memory from using registry variable
   writeln('Completed!'); // THE END
   readln;
+//wtf
 end.
