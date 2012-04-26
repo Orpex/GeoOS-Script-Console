@@ -5,15 +5,25 @@ program GeoOSScriptConsole;
 {$R *.res}
 
 uses
-  SysUtils, //basic utils
-  Classes,  //some useful classes
-  Registry, //implement Windows registry
-  Windows;  //declaration and etc., useful for us
+  SysUtils,     //basic utils
+  Classes,      //some useful classes
+  Registry,     //implement Windows registry
+  Windows,      //declaration and etc., useful for us
+  urlmon;       //for url download
 
 var
-  paramsraw: string;        // implement variables for recognition of
-  params: TStringList;      // program parameters (max up to 50 params)
-  reg: TRegistry;           // variable for accessing Windows registry
+  paramsraw: string;           // implement variables for recognition of
+  params: TStringList;         // program parameters (max up to 50 params)
+  reg: TRegistry;              // variable for accessing Windows registry
+
+function DownloadFile(SourceFile, DestFile: string): Boolean;
+begin
+  try
+    Result := UrlDownloadToFileW(nil, PChar(SourceFile), PChar(DestFile), 0, nil) = 0;
+  except
+    Result := False;
+  end;
+end;
 
 procedure Split(Delimiter: Char; Str: string; ListOfStrings: TStrings); // Split what we need
 //thanks to RRUZ - http://stackoverflow.com/questions/2625707/delphi-how-do-i-split-a-string-into-an-array-of-strings-based-on-a-delimiter
@@ -49,7 +59,7 @@ var index: integer;
 begin
   index:=-1;  //because index cannot be negative
   params.Find(param,index);
-  if not(index=-1) then //if index of given searched string isn't found, value of 'index' is still -1
+  if not(index=0) then //if index of given searched string isn't found, value of 'index' is now 0 (not found)
   begin
     result:=true; //param is found
   end
@@ -75,8 +85,10 @@ begin
   else result:=false; //everything else is in local computer
 end;
 
+function init(): boolean;
 begin
-  writeln('Starting...'); // Starting of script
+  paramsraw:='';
+  params:=TStringList.Create();
   paramsraw:=LookUpForParams(); //Main initializon for parameters... what to do and everything else
   Split('|',paramsraw,params); //Get every param used
   // initialize registry variable
@@ -90,7 +102,19 @@ begin
   begin
     reg.CreateKey('Software\GeoOS-Script\');
     reg.OpenKey('Software\GeoOS-Script\',false);
-  end;
+  end;;
+end;
+
+function FreeAll(): boolean;
+begin
+  reg.Free;          //release memory from using registry variable
+  params.Free;       //release memory from using stringlist variable
+end;
+
+begin
+  writeln('Starting...'); // Starting of script
+  // initialize needed variables
+  init();
   // Now we need if it would be an install (or update) or uninstall (remove or downgrade)
   if(SearchForSplitParam('-i') and not(SearchForSplitParam('-r'))) then
   begin
@@ -110,6 +134,7 @@ begin
       begin
         //local file not found, parameter for file is incorrect
         writeln('Parameters are incorrect! Not found proper .gos link!');
+        readln;
         exit; //terminate program
       end;
     end;
@@ -120,12 +145,19 @@ begin
     //If -i (-i means install) is found too, params are incorrect
 
   end
-  else
+  else if(SearchForSplitParam('-i') and SearchForSplitParam('-r')) then
   begin
     writeln('Parameters are incorrect! Found both -i and -r!');
+    readln;
+    exit; //terminate program
+  end
+  else
+  begin
+    writeln('Parameters are incorrect! Parameters -i or -r weren´t recognized!');
+    readln;
     exit; //terminate program
   end;
-  reg.Free; //release memory from using registry variable
+  FreeAll();
   writeln('Completed!'); // THE END
   readln;
 end.
