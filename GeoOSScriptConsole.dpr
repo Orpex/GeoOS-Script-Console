@@ -98,18 +98,20 @@ begin
     //If -r (-r means remove) is found too, params are incorrect
     if(IsRemote(ParamStr(GetInitIndex('i')))) then
     begin
-
+      //initialize download
     end
     else // parameter after -i is local? check it
     begin
-      {if(FileExists()) then
+      if(FileExists(ParamStr(GetInitIndex('i')))) then
       begin
         //file exists
       end
       else
       begin
         //local file not found, parameter for file is incorrect
-      end;}
+        writeln('Parameters are incorrect! Not found proper .gos link!');
+        exit; //terminate program
+      end;
     end;
   end
   else if(SearchForSplitParam('-r') and not(SearchForSplitParam('-i'))) then
@@ -126,5 +128,4 @@ begin
   reg.Free; //release memory from using registry variable
   writeln('Completed!'); // THE END
   readln;
-//wtf
 end.
