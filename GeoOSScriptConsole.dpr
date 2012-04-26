@@ -102,7 +102,7 @@ begin
   begin
     reg.CreateKey('Software\GeoOS-Script\');
     reg.OpenKey('Software\GeoOS-Script\',false);
-  end;;
+  end;
 end;
 
 function FreeAll(): boolean;
