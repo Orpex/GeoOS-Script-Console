@@ -9,19 +9,50 @@ uses
   Classes,      //some useful classes
   Registry,     //implement Windows registry
   Windows,      //declaration and etc., useful for us
-  urlmon;       //for url download
+  IdHTTP,       //indy http library for download
+  IdAntiFreeze; //indy antifreeze library for stop freezen application, when downloading
 
 var
-  paramsraw: string;           // implement variables for recognition of
-  params: TStringList;         // program parameters (max up to 50 params)
-  reg: TRegistry;              // variable for accessing Windows registry
+  paramsraw: string;                   // implement variables for recognition of
+  params: TStringList;                 // program parameters (max up to 50 params)
+  reg: TRegistry;                      // variable for accessing Windows registry
+  fIDHTTP: TIdHTTP;                    // variable for downloading
+  antifreeze: TIdAntiFreeze;           // variable for stopping freezing application, when download
 
-function DownloadFile(SourceFile, DestFile: string): Boolean;
+function DownloadFile( const aSourceURL: String;
+                   const aDestFileName: String): boolean;
+var
+  Stream: TMemoryStream;
 begin
+  Result := FALSE;
+  fIDHTTP := TIDHTTP.Create;
+  fIDHTTP.HandleRedirects := TRUE;
+  fIDHTTP.AllowCookies := FALSE;
+  fIDHTTP.Request.UserAgent := 'Mozilla/4.0';
+  fIDHTTP.Request.Connection := 'Keep-Alive';
+  fIDHTTP.Request.ProxyConnection := 'Keep-Alive';
+  fIDHTTP.Request.CacheControl := 'no-cache';
+  //fIDHTTP.OnWork:=IdHTTPWork;
+  //fIDHTTP.OnWorkBegin:=IdHTTPWorkBegin;           //this will be for download status -> not needed now
+  //fIDHTTP.OnWorkend:=IdHTTPWorkEnd;
+
+  Stream := TMemoryStream.Create;
   try
-    Result := UrlDownloadToFileW(nil, PChar(SourceFile), PChar(DestFile), 0, nil) = 0;
-  except
-    Result := False;
+    try
+      fIDHTTP.Get(aSourceURL, Stream);
+      if FileExists(aDestFileName) then
+        DeleteFile(PWideChar(aDestFileName));
+      Stream.SaveToFile(aDestFileName);
+      Result := TRUE;
+    except
+      On E: Exception do
+        begin
+          Result := FALSE;
+        end;
+    end;
+  finally
+    Stream.Free;
+    fIDHTTP.Free;
   end;
 end;
 
@@ -58,8 +89,8 @@ function SearchForSplitParam(param: string): boolean;
 var index: integer;
 begin
   index:=-1;  //because index cannot be negative
-  params.Find(param,index);
-  if not(index=0) then //if index of given searched string isn't found, value of 'index' is now 0 (not found)
+  index:=params.IndexOf(param);
+  if not(index=-1) then //if index of given searched string isn't found, value of 'index' is still -1 (not found)
   begin
     result:=true; //param is found
   end
@@ -73,16 +104,47 @@ function GetInitIndex(param: char): integer; //gets index of -i or -i parameters
 var index: integer;
 begin
   index:=-1;  //because index cannot be negative
-  params.Find('-'+param,index);
+  index:=params.IndexOf('-'+param)+1;
   //we know, that it already exists, so there is no condition for: if index is not -1
   result:=index;
 end;
 
 function IsRemote(param: string): boolean; //Local -> false | Remote -> true
 begin
-  if(param[1]+param[2]+param[3]+param[4]='http') then result:=true //accepting http:// and https:// as remotes
-  else if(param[1]+param[2]+param[3]+param[4]='ftp') then result:=true //accepting ftp as remote
-  else result:=false; //everything else is in local computer
+  result:=false; //not implemented
+  {if((param[1]+param[2]+param[3]+param[4]+param[5]+param[6]+param[7])='http://') then result:=true //accepting http:// as remote
+  else if((param[1]+param[2]+param[3]+param[4]+param[5]+param[6])='ftp://') then result:=true //accepting ftp as remote
+  else result:=false; //everything else is in local computer}
+end;
+
+function empty(str: string): boolean;
+begin
+  if(str='') then result:=true
+  else result:=false;
+end;
+
+function GetLocalDir(): string;
+begin
+  result:=ExtractFilePath(ParamStr(0));
+end;
+
+function GetDLFileName(url: string): string;
+begin
+writeln('');
+end;
+
+function Install(path: string): boolean;
+var
+  f: Text;
+  line: string;
+begin
+  Assign(f,path);
+  reset(f);
+  repeat
+    readln(f,line);
+    writeln(line);
+  until EOF(f);
+  close(f);
 end;
 
 function init(): boolean;
@@ -90,6 +152,14 @@ begin
   paramsraw:='';
   params:=TStringList.Create();
   paramsraw:=LookUpForParams(); //Main initializon for parameters... what to do and everything else
+  if(empty(paramsraw)) then //If program didn't find any parameters
+  begin
+    write('No parameters detected, write one now: ');
+    read(paramsraw);
+    readln;
+    paramsraw:=StringReplace(paramsraw,' ','|',[rfReplaceAll, rfIgnoreCase]);
+    writeln(paramsraw);
+  end;
   Split('|',paramsraw,params); //Get every param used
   // initialize registry variable
   reg:=TRegistry.Create();
@@ -103,12 +173,18 @@ begin
     reg.CreateKey('Software\GeoOS-Script\');
     reg.OpenKey('Software\GeoOS-Script\',false);
   end;
+  // end of inicializing of registry variable
+  // initialize indys
+  fIDHTTP:=TIdHTTP.Create();
+  antifreeze:=TIdAntiFreeze.Create();
 end;
 
 function FreeAll(): boolean;
 begin
   reg.Free;          //release memory from using registry variable
   params.Free;       //release memory from using stringlist variable
+  //indy http lybrary is freed on every used of DownloadFile();
+  antifreeze.Free;
 end;
 
 begin
@@ -120,15 +196,32 @@ begin
   begin
     //Install script or update (-i means install)
     //If -r (-r means remove) is found too, params are incorrect
-    if(IsRemote(ParamStr(GetInitIndex('i')))) then
+    if(IsRemote(ParamStr(GetInitIndex('i')+1))) then  // IsRemote(ParamStr(GetInitIndex('i')+1))
     begin
-      //initialize download
+      //initialize download -not fully implemented
+      writeln(ParamStr(GetInitIndex('i')+1),' | ',GetLocalDir+ExtractFileName(ParamStr(GetInitIndex('i')+1)));
+      DownloadFile(ParamStr(GetInitIndex('i')+1),GetLocalDir+ExtractFileName(ExtractFileName(ParamStr(GetInitIndex('i')+1))));
+      if(FileExists(GetLocalDir+ExtractFileName(ParamStr(GetInitIndex('i')+1)))) then
+      begin
+        writeln('Script downloaded!');
+        Install(ParamStr(GetInitIndex('i')+1));
+      end
+      else
+      begin
+        writeln('Script not found!');
+      end;
     end
     else // parameter after -i is local? check it
     begin
-      if(FileExists(ParamStr(GetInitIndex('i')))) then
+      if(FileExists(ParamStr(GetInitIndex('i')+1))) then
       begin
-        //file exists
+        //file exists in computer
+        Install(ParamStr(GetInitIndex('i')+1));
+      end
+      else if(FileExists(GetLocalDir+ParamStr(GetInitIndex('i')+1))) then
+      begin
+        //file exists in local directory
+        Install(GetLocalDir+ParamStr(GetInitIndex('i')+1));
       end
       else
       begin
@@ -143,7 +236,24 @@ begin
   begin
     //Remove script or downgrade (-r means remove)
     //If -i (-i means install) is found too, params are incorrect
-
+    if(IsRemote(ParamStr(GetInitIndex('r')+1))) then
+    begin
+      //initialize download
+    end
+    else // parameter after -i is local? check it
+    begin
+      if(FileExists(ParamStr(GetInitIndex('r')+1))) then
+      begin
+        //file exists
+      end
+      else
+      begin
+        //local file not found, parameter for file is incorrect
+        writeln('Parameters are incorrect! Not found proper .gos link!');
+        readln;
+        exit; //terminate program
+      end;
+    end;
   end
   else if(SearchForSplitParam('-i') and SearchForSplitParam('-r')) then
   begin
