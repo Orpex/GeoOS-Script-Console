@@ -15,6 +15,8 @@ uses
 var
   paramsraw: string;                   // implement variables for recognition of
   params: TStringList;                 // program parameters (max up to 50 params)
+  CommandSplit1: TStringList;          // for spliting of commands (main - what is command, and what are parameters)
+  CommandSplit2: TStringList;          // for spliting of commands (minor - if multiple parameters, split them too)
   reg: TRegistry;                      // variable for accessing Windows registry
   fIDHTTP: TIdHTTP;                    // variable for downloading
   antifreeze: TIdAntiFreeze;           // variable for stopping freezing application, when download
@@ -104,14 +106,14 @@ function GetInitIndex(param: char): integer; //gets index of -i or -i parameters
 var index: integer;
 begin
   index:=-1;  //because index cannot be negative
-  index:=params.IndexOf('-'+param)+1;
+  index:=params.IndexOf('-'+param);
   //we know, that it already exists, so there is no condition for: if index is not -1
   result:=index;
 end;
 
 function IsRemote(param: string): boolean; //Local -> false | Remote -> true
 begin
-  result:=false; //not implemented
+  result:=true; //not implemented
   {if((param[1]+param[2]+param[3]+param[4]+param[5]+param[6]+param[7])='http://') then result:=true //accepting http:// as remote
   else if((param[1]+param[2]+param[3]+param[4]+param[5]+param[6])='ftp://') then result:=true //accepting ftp as remote
   else result:=false; //everything else is in local computer}
@@ -133,7 +135,7 @@ begin
 writeln('');
 end;
 
-function Install(path: string): boolean;
+function Install(path: string): boolean; overload;
 var
   f: Text;
   line: string;
@@ -147,10 +149,68 @@ begin
   close(f);
 end;
 
+function Install(path: string; temp: boolean): boolean; overload; // determinates, if installing script is in 'temporary' mode
+var
+  f: Text;
+  line: string;
+begin
+  if(temp=true) then //if not, its normal install
+  begin
+    Assign(f,path);
+    reset(f);
+    repeat
+      readln(f,line);
+      writeln(line);
+    until EOF(f);
+    close(f);
+  end
+  else
+  begin
+    Install(path);
+  end;
+end;
+
+function Remove(path: string): boolean; overload;
+var
+  f: Text;
+  line: string;
+begin
+  Assign(f,path);
+  reset(f);
+  repeat
+    readln(f,line);
+    writeln(line);
+  until EOF(f);
+  close(f);
+end;
+
+function Remove(path: string; temp: boolean): boolean; overload; // determinates, if removing script is in 'temporary' mode
+var
+  f: Text;
+  line: string;
+begin
+  if(temp=true) then //if not, its normal remove
+  begin
+    Assign(f,path);
+    reset(f);
+    repeat
+      readln(f,line);
+      writeln(line);
+    until EOF(f);
+    close(f);
+  end
+  else
+  begin
+    Remove(path);
+  end;
+end;
+
 function init(): boolean;
 begin
   paramsraw:='';
   params:=TStringList.Create();
+  CommandSplit1:=TStringList.Create();
+  CommandSplit2:=TStringList.Create();
   paramsraw:=LookUpForParams(); //Main initializon for parameters... what to do and everything else
   if(empty(paramsraw)) then //If program didn't find any parameters
   begin
@@ -158,7 +218,6 @@ begin
     read(paramsraw);
     readln;
     paramsraw:=StringReplace(paramsraw,' ','|',[rfReplaceAll, rfIgnoreCase]);
-    writeln(paramsraw);
   end;
   Split('|',paramsraw,params); //Get every param used
   // initialize registry variable
@@ -181,8 +240,10 @@ end;
 
 function FreeAll(): boolean;
 begin
-  reg.Free;          //release memory from using registry variable
-  params.Free;       //release memory from using stringlist variable
+  reg.Free;           //release memory from using registry variable
+  params.Free;        //release memory from using stringlist variable
+  CommandSplit1.Free; //release memory from using main split
+  CommandSplit2.Free; //release memory from using minor split
   //indy http lybrary is freed on every used of DownloadFile();
   antifreeze.Free;
 end;
@@ -196,15 +257,14 @@ begin
   begin
     //Install script or update (-i means install)
     //If -r (-r means remove) is found too, params are incorrect
-    if(IsRemote(ParamStr(GetInitIndex('i')+1))) then  // IsRemote(ParamStr(GetInitIndex('i')+1))
+    if(IsRemote(params[GetInitIndex('i')+1])) then
     begin
       //initialize download -not fully implemented
-      writeln(ParamStr(GetInitIndex('i')+1),' | ',GetLocalDir+ExtractFileName(ParamStr(GetInitIndex('i')+1)));
-      DownloadFile(ParamStr(GetInitIndex('i')+1),GetLocalDir+ExtractFileName(ExtractFileName(ParamStr(GetInitIndex('i')+1))));
-      if(FileExists(GetLocalDir+ExtractFileName(ParamStr(GetInitIndex('i')+1)))) then
+      DownloadFile(params[GetInitIndex('i')+1],GetLocalDir+'tmpscript.gos');
+      if(FileExists(GetLocalDir+'tmpscript.gos')) then
       begin
         writeln('Script downloaded!');
-        Install(ParamStr(GetInitIndex('i')+1));
+        Install(GetLocalDir+'tmpscript.gos',true);
       end
       else
       begin
@@ -213,15 +273,15 @@ begin
     end
     else // parameter after -i is local? check it
     begin
-      if(FileExists(ParamStr(GetInitIndex('i')+1))) then
+      if(FileExists(params[GetInitIndex('i')+1])) then
       begin
         //file exists in computer
-        Install(ParamStr(GetInitIndex('i')+1));
+        Install(params[GetInitIndex('i')+1]);
       end
       else if(FileExists(GetLocalDir+ParamStr(GetInitIndex('i')+1))) then
       begin
         //file exists in local directory
-        Install(GetLocalDir+ParamStr(GetInitIndex('i')+1));
+        Install(GetLocalDir+params[GetInitIndex('i')+1]);
       end
       else
       begin
@@ -236,15 +296,31 @@ begin
   begin
     //Remove script or downgrade (-r means remove)
     //If -i (-i means install) is found too, params are incorrect
-    if(IsRemote(ParamStr(GetInitIndex('r')+1))) then
+    if(IsRemote(params[GetInitIndex('r')+1])) then
     begin
-      //initialize download
+      //initialize download -not fully implemented
+      DownloadFile(params[GetInitIndex('r')+1],GetLocalDir+'tmpscript.gos');
+      if(FileExists(GetLocalDir+'tmpscript.gos')) then
+      begin
+        writeln('Script downloaded!');
+        Remove(GetLocalDir+'tmpscript.gos',true);
+      end
+      else
+      begin
+        writeln('Script not found!');
+      end;
     end
     else // parameter after -i is local? check it
     begin
-      if(FileExists(ParamStr(GetInitIndex('r')+1))) then
+      if(FileExists(params[GetInitIndex('r')+1])) then
       begin
-        //file exists
+        //file exists in computer
+        Remove(params[GetInitIndex('r')+1]);
+      end
+      else if(FileExists(GetLocalDir+ParamStr(GetInitIndex('r')+1))) then
+      begin
+        //file exists in local directory
+        Remove(GetLocalDir+params[GetInitIndex('r')+1]);
       end
       else
       begin
@@ -268,6 +344,6 @@ begin
     exit; //terminate program
   end;
   FreeAll();
-  writeln('Completed!'); // THE END
+  // THE END
   readln;
 end.
