@@ -112,11 +112,18 @@ begin
 end;
 
 function IsRemote(param: string): boolean; //Local -> false | Remote -> true
+var
+  split1: string;
+  split2: string;
+  split3: string;
 begin
-  result:=true; //not implemented
-  {if((param[1]+param[2]+param[3]+param[4]+param[5]+param[6]+param[7])='http://') then result:=true //accepting http:// as remote
-  else if((param[1]+param[2]+param[3]+param[4]+param[5]+param[6])='ftp://') then result:=true //accepting ftp as remote
-  else result:=false; //everything else is in local computer}
+  split1:=param[1]+param[2]+param[3]+param[4]+param[5]+param[6]+param[7];
+  split2:=param[1]+param[2]+param[3]+param[4]+param[5]+param[6]+param[7]+param[8];
+  split3:=param[1]+param[2]+param[3]+param[4]+param[5]+param[6];
+  if(split1='http://') then result:=true        //accepting http:// as remote
+  else if(split2='https://') then result:=true  //accepting https:// as remote
+  else if(split3='ftp://') then result:=true    //accepting ftp:// as remote
+  else result:=false; //everything else is in local computer
 end;
 
 function empty(str: string): boolean;
