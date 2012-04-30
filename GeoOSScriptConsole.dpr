@@ -137,9 +137,39 @@ begin
   result:=ExtractFilePath(ParamStr(0));
 end;
 
-function GetDLFileName(url: string): string;
+function GetLocalPath(): string;
 begin
-writeln('');
+  result:=ExtractFilePath(ParamStr(0));
+end;
+
+function ReadCommand(str: string): string;
+begin
+Split('=',str,CommandSplit1);
+result:=CommandSplit1[0];
+end;
+
+function CommandParams(str: string): string; overload;
+begin
+Split(',',str,CommandSplit2);
+result:=CommandSplit2.Text;
+end;
+
+function CommandParams(str: string; index: integer): string; overload;
+begin
+Split(',',str,CommandSplit2);
+result:=CommandSplit2[index];
+end;
+
+function RemoveAndReg(reg_loc: string): boolean; overload;
+var
+  i: integer;
+  CommandSplit3: TStringList;
+begin
+  CommandSplit3.Create();
+  reg.OpenKey(reg_loc,false);
+  Split('|',reg.ReadString('Sum'),CommandSplit3);
+
+  CommandSplit3.Free;
 end;
 
 function Install(path: string): boolean; overload;
@@ -149,10 +179,22 @@ var
 begin
   Assign(f,path);
   reset(f);
-  repeat
-    readln(f,line);
-    writeln(line);
-  until EOF(f);
+  readln(f,line);
+  if(ReadCommand(line)='ScriptName') then
+  begin
+    if(reg.KeyExists('Software\GeoOS-Script\'+ReadCommand(line))) then //if exists -> update
+    begin
+      RemoveAndReg('Software\GeoOS-Script\'+ReadCommand(line)); //delete previosly version
+    end;
+    repeat
+      readln(f,line);
+
+    until EOF(f);
+  end
+  else
+  begin
+    writeln('Invalid Script Name!');
+  end;
   close(f);
 end;
 
@@ -165,11 +207,18 @@ begin
   begin
     Assign(f,path);
     reset(f);
-    repeat
-      readln(f,line);
-      writeln(line);
-    until EOF(f);
+    readln(f,line);
     close(f);
+    if(ReadCommand(line)='ScriptName') then
+    begin
+      CopyFile(PWChar(path),PWChar(GetLocalDir+CommandParams(line)),false);
+      Install(GetLocalDir+CommandParams(line));
+    end
+    else
+    begin
+      writeln('Invalid script!');
+      readln;
+    end;
   end
   else
   begin
@@ -200,11 +249,18 @@ begin
   begin
     Assign(f,path);
     reset(f);
-    repeat
-      readln(f,line);
-      writeln(line);
-    until EOF(f);
+    readln(f,line);
     close(f);
+    if(ReadCommand(line)='ScriptName') then
+    begin
+      CopyFile(PWChar(path),PWChar(GetLocalDir+CommandParams(line)),false);
+      Remove(GetLocalDir+CommandParams(line));
+    end
+    else
+    begin
+      writeln('Invalid script!');
+      readln;
+    end;
   end
   else
   begin
@@ -226,7 +282,7 @@ begin
     readln;
     paramsraw:=StringReplace(paramsraw,' ','|',[rfReplaceAll, rfIgnoreCase]);
   end;
-  Split('|',paramsraw,params); //Get every param used
+  Split('|',paramsraw,params); //Get every used param
   // initialize registry variable
   reg:=TRegistry.Create();
   reg.RootKey:=HKEY_CURRENT_USER;
@@ -251,7 +307,7 @@ begin
   params.Free;        //release memory from using stringlist variable
   CommandSplit1.Free; //release memory from using main split
   CommandSplit2.Free; //release memory from using minor split
-  //indy http lybrary is freed on every used of DownloadFile();
+  //indy http lybrary is freed on every use of DownloadFile();
   antifreeze.Free;
 end;
 
