@@ -150,13 +150,15 @@ end;
 
 function CommandParams(str: string): string; overload;
 begin
-Split(',',str,CommandSplit2);
-result:=CommandSplit2.Text;
+writeln(str);
+Split('=',str,CommandSplit1);
+result:=CommandSplit1[1];
 end;
 
 function CommandParams(str: string; index: integer): string; overload;
 begin
-Split(',',str,CommandSplit2);
+Split('=',str,CommandSplit1);
+Split(',',CommandSplit1[1],CommandSplit2);
 result:=CommandSplit2[index];
 end;
 
@@ -211,8 +213,8 @@ begin
     close(f);
     if(ReadCommand(line)='ScriptName') then
     begin
-      CopyFile(PWChar(path),PWChar(GetLocalDir+CommandParams(line)),false);
-      Install(GetLocalDir+CommandParams(line));
+      CopyFile(PWChar(path),PWChar(GetLocalDir+CommandParams(line)+'.gos'),true);
+      Install(GetLocalDir+CommandParams(line)+'.gos');
     end
     else
     begin
