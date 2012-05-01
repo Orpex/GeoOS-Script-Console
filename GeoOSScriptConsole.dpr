@@ -161,16 +161,90 @@ Split(',',CommandSplit1[1],CommandSplit2);
 result:=CommandSplit2[index];
 end;
 
-function RemoveAndReg(reg_loc: string): boolean; overload;
+function RemoveAndReg(reg_loc: string): boolean;
 var
   i: integer;
   CommandSplit3: TStringList;
 begin
   CommandSplit3.Create();
-  reg.OpenKey(reg_loc,false);
-  Split('|',reg.ReadString('Sum'),CommandSplit3);
-
+  //reg.OpenKey(reg_loc,false);
+  //Split('|',reg.ReadString('Sum'),CommandSplit3); for removing, not yet implemented
   CommandSplit3.Free;
+  //reg.CloseKey;
+  reg.DeleteKey(reg_loc);
+end;
+
+function ReadAndDoCommands(line: string): string; //the most important function!
+var
+  comm,par: string;
+  yn: char;
+begin
+comm:=ReadCommand(line);
+par:=CommandParams(line);
+if(comm='ScriptName') then
+begin
+  writeln('Script name: ',par);
+end
+else if(comm='Author') then
+begin
+  writeln('Script´s Author: ',par);
+end
+else if(comm='MkDir') then //Create Directory
+begin
+  if not(DirectoryExists(GetLocalDir+par)) then
+  begin
+    mkdir(GetLocalDir+par);
+    writeln('Directory "',GetLocalDir+par,'" created.');
+  end;
+end
+else if(comm='RmDir') then //Remove Directory
+begin
+  if(DirectoryExists(GetLocalDir+par)) then
+  begin
+    rmdir(GetLocalDir+par);
+    writeln('Directory "',GetLocalDir+par,'" removed.');
+  end;
+end
+else if(comm='RmFile') then //Remove File
+begin
+  if(FileExists(GetLocalDir+par)) then
+  begin
+    deletefile(PWChar(GetLocalDir+par));
+    writeln('File "',GetLocalDir+par,'" removed.');
+  end;
+end
+else if(comm='DownloadFile') then
+begin
+  if(fileexists(GetLocalDir+CommandParams(line,1))) then
+  begin
+    if(CommandParams(line,3)='override') then
+    begin
+      writeln('Downloading "',CommandParams(line,0),'" to "'+GetLocalDir+CommandParams(line,1),'" ... autooverride');
+      DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not check for directory created, see MkDir
+    end
+    else
+    begin
+      write('File "',GetLocalDir+CommandParams(line,1),'" already exists, override? [y/n]: ');
+      read(yn);
+      if(yn='y') then // if user type "y" it means "yes"
+      begin
+        writeln('Downloading "',CommandParams(line,0),'" to '+GetLocalDir+CommandParams(line,1),'" ...');
+        DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not check for directory created, see MkDir
+      end;
+      readln;
+    end;
+  end
+  else  //file does not exists
+  begin
+    writeln('Downloading "',CommandParams(line,0),'" to "'+GetLocalDir+CommandParams(line,1),'" ...');
+    DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not check for directory created, see MkDir
+  end;
+  writeln('OK');
+end
+else
+begin
+  writeln('Command "',comm,'" not found!');
+end;
 end;
 
 function Install(path: string): boolean; overload;
@@ -181,16 +255,22 @@ begin
   Assign(f,path);
   reset(f);
   readln(f,line);
+  reset(f);
   if(ReadCommand(line)='ScriptName') then
   begin
-    if(reg.KeyExists('Software\GeoOS-Script\'+ReadCommand(line))) then //if exists -> update
+    if(reg.KeyExists('Software\GeoOS-Script\'+CommandParams(line))) then //if exists -> update
     begin
-      RemoveAndReg('Software\GeoOS-Script\'+ReadCommand(line)); //delete previosly version
+      RemoveAndReg('Software\GeoOS-Script\'+CommandParams(line)); //delete previosly version
     end;
     repeat
       readln(f,line);
-
+      ReadAndDoCommands(line);
     until EOF(f);
+    reg.OpenKey('Software\GeoOS-Script\'+CommandParams(line),true);
+    reg.WriteString('Sum',paramsraw);
+    reg.WriteString('InstallDir',GetLocalDir);
+    reg.CloseKey;
+    writeln('Script completed!');
   end
   else
   begin
