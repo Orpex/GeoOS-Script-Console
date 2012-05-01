@@ -158,7 +158,7 @@ function CommandParams(str: string; index: integer): string; overload;
 begin
 Split('=',str,CommandSplit1);
 Split(',',CommandSplit1[1],CommandSplit2);
-if((CommandSplit2.Count-1)<=index) then
+if((CommandSplit2.Count-1)>=index) then
 begin
   result:=CommandSplit2[index];
 end
@@ -224,7 +224,7 @@ else if(comm='DownloadFile') then
 begin
   if(fileexists(GetLocalDir+CommandParams(line,1))) then
   begin
-    if(CommandParams(line,3)='overwrite') then
+    if(CommandParams(line,2)='overwrite') then
     begin
       writeln('Downloading "',CommandParams(line,0),'" to "'+GetLocalDir+CommandParams(line,1),'" ... autooverwrite');
       DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not check for directory created, see MkDir
