@@ -150,7 +150,6 @@ end;
 
 function CommandParams(str: string): string; overload;
 begin
-writeln(str);
 Split('=',str,CommandSplit1);
 result:=CommandSplit1[1];
 end;
