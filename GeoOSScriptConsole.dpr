@@ -225,19 +225,19 @@ begin
       writeln('File "',GetLocalDir+par,'" removed.');
     end;
   end
-  else if(comm='Execute') then //Execute file as normal user  <- no parameters for command now supported
+  else if(comm='Execute') then
   begin
-    if(FileExists(GetLocalDir+par)) then
+    if(FileExists(GetLocalDir+CommandParams(line,0))) then
     begin
-      ShellExecute(Handle,'open',PWChar(GetLocalDir+par),'',PWChar(GetLocalDir),1);
+      ShellExecute(Handle,'open',PWChar(GetLocalDir+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),1);
       writeln('File "',GetLocalDir+par,'" removed.');
     end;
   end
-  else if(comm='ExecuteAdmin') then //Execute file as admin  <- no parameters for command now supported
+  else if(comm='ExecuteAdmin') then
   begin
-    if(FileExists(GetLocalDir+par)) then
+    if(FileExists(GetLocalDir+CommandParams(line,0))) then
     begin
-      ShellExecute(Handle,'runas',PWChar(GetLocalDir+par),'',PWChar(GetLocalDir),1);
+      ShellExecute(Handle,'runas',PWChar(GetLocalDir+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),1);
       writeln('File "',GetLocalDir+par,'" removed.');
     end;
   end
