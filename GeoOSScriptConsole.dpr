@@ -10,7 +10,8 @@ uses
   Registry,     //implement Windows registry
   Windows,      //declaration and etc., useful for us
   IdHTTP,       //indy http library for download
-  IdAntiFreeze; //indy antifreeze library for stop freezen application, when downloading
+  IdAntiFreeze, //indy antifreeze library for stop freezen application, when downloading
+  shellapi;     //for accessing shells
 
 var
   paramsraw: string;                   // implement variables for recognition of
@@ -20,6 +21,7 @@ var
   reg: TRegistry;                      // variable for accessing Windows registry
   fIDHTTP: TIdHTTP;                    // variable for downloading
   antifreeze: TIdAntiFreeze;           // variable for stopping freezing application, when download
+  Handle: HWND;                        // some handle variable for shellapi
 
 function DownloadFile( const aSourceURL: String;
                    const aDestFileName: String): boolean;
@@ -135,12 +137,12 @@ begin
   else result:=false;
 end;
 
-function GetLocalDir(): string;
+function GetLocalDir(): string;   //same function as GetLocalPath()
 begin
   result:=ExtractFilePath(ParamStr(0));
 end;
 
-function GetLocalPath(): string;
+function GetLocalPath(): string; //same function as GetLocalDir()
 begin
   result:=ExtractFilePath(ParamStr(0));
 end;
@@ -220,6 +222,22 @@ begin
     if(FileExists(GetLocalDir+par)) then
     begin
       deletefile(PWChar(GetLocalDir+par));
+      writeln('File "',GetLocalDir+par,'" removed.');
+    end;
+  end
+  else if(comm='Execute') then //Execute file as normal user  <- no parameters for command now supported
+  begin
+    if(FileExists(GetLocalDir+par)) then
+    begin
+      ShellExecute(Handle,'open',PWChar(GetLocalDir+par),'',PWChar(GetLocalDir),1);
+      writeln('File "',GetLocalDir+par,'" removed.');
+    end;
+  end
+  else if(comm='ExecuteAdmin') then //Execute file as admin  <- no parameters for command now supported
+  begin
+    if(FileExists(GetLocalDir+par)) then
+    begin
+      ShellExecute(Handle,'runas',PWChar(GetLocalDir+par),'',PWChar(GetLocalDir),1);
       writeln('File "',GetLocalDir+par,'" removed.');
     end;
   end
