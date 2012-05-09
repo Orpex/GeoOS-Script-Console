@@ -71,20 +71,23 @@ var
   returnstr: string;
   i: integer;
 begin
-returnstr:='';
-for i:=1 to ParamCount() do
-begin
-  returnstr:=returnstr+ParamStr(i)+'|';
-end;
-result:=returnstr;
+  returnstr:='';
+  if(ParamCount()>0) then
+  begin
+    for i:=1 to ParamCount() do
+    begin
+      returnstr:=returnstr+ParamStr(i)+'|';
+    end;
+  end;
+  result:=returnstr;
 end;
 
 function LookUpForParams(): string; //Search, how many and what parameters are used
 begin
-if(ParamCount()>0) then
-begin
-  result:=GetParams();
-end;
+  if(ParamCount()>0) then
+  begin
+    result:=GetParams();
+  end;
 end;
 
 function SearchForSplitParam(param: string): boolean;
@@ -114,14 +117,14 @@ end;
 function IsRemote(param: string): boolean; //Local -> false | Remote -> true
 var
   split1: string;
-  split2: string;
+  //split2: string;
   split3: string;
 begin
   split1:=param[1]+param[2]+param[3]+param[4]+param[5]+param[6]+param[7];
-  split2:=param[1]+param[2]+param[3]+param[4]+param[5]+param[6]+param[7]+param[8];
+  //split2:=param[1]+param[2]+param[3]+param[4]+param[5]+param[6]+param[7]+param[8]; //SSL not supported
   split3:=param[1]+param[2]+param[3]+param[4]+param[5]+param[6];
   if(split1='http://') then result:=true        //accepting http:// as remote
-  else if(split2='https://') then result:=true  //accepting https:// as remote
+  //else if(split2='https://') then result:=true  //accepting https:// as remote
   else if(split3='ftp://') then result:=true    //accepting ftp:// as remote
   else result:=false; //everything else is in local computer
 end;
@@ -144,28 +147,28 @@ end;
 
 function ReadCommand(str: string): string;
 begin
-Split('=',str,CommandSplit1);
-result:=CommandSplit1[0];
+  Split('=',str,CommandSplit1);
+  result:=CommandSplit1[0];
 end;
 
 function CommandParams(str: string): string; overload;
 begin
-Split('=',str,CommandSplit1);
-result:=CommandSplit1[1];
+  Split('=',str,CommandSplit1);
+  result:=CommandSplit1[1];
 end;
 
 function CommandParams(str: string; index: integer): string; overload;
 begin
-Split('=',str,CommandSplit1);
-Split(',',CommandSplit1[1],CommandSplit2);
-if((CommandSplit2.Count-1)>=index) then
-begin
-  result:=CommandSplit2[index];
-end
-else
-begin
-  result:='';
-end;
+  Split('=',str,CommandSplit1);
+  Split(',',CommandSplit1[1],CommandSplit2);
+  if((CommandSplit2.Count-1)>=index) then
+  begin
+    result:=CommandSplit2[index];
+  end
+  else
+  begin
+    result:='';
+  end;
 end;
 
 function RemoveAndReg(reg_loc: string): boolean;
@@ -186,72 +189,72 @@ var
   comm,par: string;
   yn: char;
 begin
-comm:=ReadCommand(line);
-par:=CommandParams(line);
-if(comm='ScriptName') then
-begin
-  writeln('Script name: ',par);
-end
-else if(comm='Author') then
-begin
-  writeln('Script�s Author: ',par);
-end
-else if(comm='MkDir') then //Create Directory
-begin
-  if not(DirectoryExists(GetLocalDir+par)) then
+  comm:=ReadCommand(line);
+  par:=CommandParams(line);
+  if(comm='ScriptName') then
   begin
-    mkdir(GetLocalDir+par);
-    writeln('Directory "',GetLocalDir+par,'" created.');
-  end;
-end
-else if(comm='RmDir') then //Remove Directory
-begin
-  if(DirectoryExists(GetLocalDir+par)) then
+    writeln('Script name: ',par);
+  end
+  else if(comm='Author') then
   begin
-    rmdir(GetLocalDir+par);
-    writeln('Directory "',GetLocalDir+par,'" removed.');
-  end;
-end
-else if(comm='RmFile') then //Remove File
-begin
-  if(FileExists(GetLocalDir+par)) then
+    writeln('Script�s Author: ',par);
+  end
+  else if(comm='MkDir') then //Create Directory
   begin
-    deletefile(PWChar(GetLocalDir+par));
-    writeln('File "',GetLocalDir+par,'" removed.');
-  end;
-end
-else if(comm='DownloadFile') then
-begin
-  if(fileexists(GetLocalDir+CommandParams(line,1))) then
-  begin
-    if(CommandParams(line,2)='overwrite') then
+    if not(DirectoryExists(GetLocalDir+par)) then
     begin
-      writeln('Downloading "',CommandParams(line,0),'" to "'+GetLocalDir+CommandParams(line,1),'" ... autooverwrite');
-      DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not check for directory created, see MkDir
-    end
-    else
-    begin
-      write('File "',GetLocalDir+CommandParams(line,1),'" already exists, overwrite? [y/n]: ');
-      read(yn);
-      if(yn='y') then // if user type "y" it means "yes"
-      begin
-        writeln('Downloading "',CommandParams(line,0),'" to '+GetLocalDir+CommandParams(line,1),'" ...');
-        DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not check for directory created, see MkDir
-      end;
-      readln;
+      mkdir(GetLocalDir+par);
+      writeln('Directory "',GetLocalDir+par,'" created.');
     end;
   end
-  else  //file does not exists
+  else if(comm='RmDir') then //Remove Directory
   begin
-    writeln('Downloading "',CommandParams(line,0),'" to "'+GetLocalDir+CommandParams(line,1),'" ...');
-    DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not check for directory created, see MkDir
+    if(DirectoryExists(GetLocalDir+par)) then
+    begin
+      rmdir(GetLocalDir+par);
+      writeln('Directory "',GetLocalDir+par,'" removed.');
+    end;
+  end
+  else if(comm='RmFile') then //Remove File
+  begin
+    if(FileExists(GetLocalDir+par)) then
+    begin
+      deletefile(PWChar(GetLocalDir+par));
+      writeln('File "',GetLocalDir+par,'" removed.');
+    end;
+  end
+  else if(comm='DownloadFile') then
+  begin
+    if(fileexists(GetLocalDir+CommandParams(line,1))) then
+    begin
+      if(CommandParams(line,2)='overwrite') then
+      begin
+        writeln('Downloading "',CommandParams(line,0),'" to "'+GetLocalDir+CommandParams(line,1),'" ... autooverwrite');
+        DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not check for directory created, see MkDir
+      end
+      else
+      begin
+        write('File "',GetLocalDir+CommandParams(line,1),'" already exists, overwrite? [y/n]: ');
+        read(yn);
+        if(yn='y') then // if user type "y" it means "yes"
+        begin
+          writeln('Downloading "',CommandParams(line,0),'" to '+GetLocalDir+CommandParams(line,1),'" ...');
+          DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not check for directory created, see MkDir
+        end;
+        readln;
+      end;
+    end
+    else  //file does not exists
+    begin
+      writeln('Downloading "',CommandParams(line,0),'" to "'+GetLocalDir+CommandParams(line,1),'" ...');
+      DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not check for directory created, see MkDir
+    end;
+    writeln('OK');
+  end
+  else
+  begin
+    writeln('Command "',comm,'" not found!');
   end;
-  writeln('OK');
-end
-else
-begin
-  writeln('Command "',comm,'" not found!');
-end;
 end;
 
 function Install(path: string): boolean; overload;
