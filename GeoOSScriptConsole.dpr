@@ -11,7 +11,7 @@ uses
   Windows,      //declaration and etc., useful for us
   IdHTTP,       //indy http library for download
   IdAntiFreeze, //indy antifreeze library for stop freezen application, when downloading
-  shellapi;     //for accessing shells
+  shellapi;     //for accessing shells (in windows :D)
 
 var
   paramsraw: string;                   // implement variables for recognition of
@@ -230,7 +230,7 @@ begin
     if(FileExists(GetLocalDir+CommandParams(line,0))) then
     begin
       ShellExecute(Handle,'open',PWChar(GetLocalDir+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),1);
-      writeln('File "',GetLocalDir+par,'" removed.');
+      writeln('File "',CommandParams(line,0),'" executed with "',StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase]),'" parameters.');
     end;
   end
   else if(comm='ExecuteAdmin') then
@@ -238,7 +238,7 @@ begin
     if(FileExists(GetLocalDir+CommandParams(line,0))) then
     begin
       ShellExecute(Handle,'runas',PWChar(GetLocalDir+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),1);
-      writeln('File "',GetLocalDir+par,'" removed.');
+      writeln('File "',CommandParams(line,0),'" executed as admin with "',StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase]),'" parameters.');
     end;
   end
   else if(comm='DownloadFile') then
