@@ -1,4 +1,4 @@
-program GeoOSScriptConsole;
+﻿program GeoOSScriptConsole;
 
 {$APPTYPE CONSOLE}
 
@@ -197,7 +197,7 @@ begin
   end
   else if(comm='Author') then
   begin
-    writeln('Script�s Author: ',par);
+    writeln('Script´s Author: ',par);
   end
   else if(comm='MkDir') then //Create Directory
   begin
@@ -303,7 +303,7 @@ begin
     if(ReadCommand(line)='ScriptName') then
     begin
       CopyFile(PWChar(path),PWChar(GetLocalDir+CommandParams(line)+'.gos'),true);
-      DeleteFile(path);
+      DeleteFile(PWChar(path));
       Install(GetLocalDir+CommandParams(line)+'.gos');
     end
     else
@@ -346,7 +346,7 @@ begin
     if(ReadCommand(line)='ScriptName') then
     begin
       CopyFile(PWChar(path),PWChar(GetLocalDir+CommandParams(line)),false);
-      DeleteFile(path);
+      DeleteFile(PWChar(path));
       Remove(GetLocalDir+CommandParams(line));
     end
     else
@@ -495,7 +495,7 @@ begin
   end
   else
   begin
-    writeln('Parameters are incorrect! Parameters -i or -r weren�t recognized!');
+    writeln('Parameters are incorrect! Parameters -i or -r weren´t recognized!');
     readln;
     exit; //terminate program
   end;
