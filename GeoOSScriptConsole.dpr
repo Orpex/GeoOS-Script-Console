@@ -197,9 +197,33 @@ begin
   begin
     writeln('Script name: ',par);
   end
-  else if(comm='Author') then
+  else if(comm='Author') then //Write script's author
   begin
     writeln('Script´s Author: ',par);
+  end
+  else if(comm='Log') then //Write a message
+  begin
+    writeln(par);
+  end
+  else if(comm='LogEnter') then //Write a message, user need to hit enter to continue with program
+  begin
+    write(par);
+    readln;
+  end
+  else if(comm='PromptYesNo') then //Ask user to do some command, if 'y' is prompt that command will be used
+  begin
+    write(StringReplace(CommandParams(line,0),'_',' ', [rfReplaceAll, rfIgnoreCase])+' [y/n]: ');
+    read(yn);
+    if(yn='y') then
+    begin
+      writeln('Prompt: '+CommandParams(line,1));
+      ReadAndDoCommands(CommandParams(line,1));
+    end
+    else
+    begin
+      writeln('Prompt: Do Nothing');
+    end;
+    readln;
   end
   else if(comm='MkDir') then //Create Directory
   begin
@@ -248,7 +272,7 @@ begin
       if(CommandParams(line,2)='overwrite') then
       begin
         writeln('Downloading "',CommandParams(line,0),'" to "'+GetLocalDir+CommandParams(line,1),'" ... autooverwrite');
-        DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not check for directory created, see MkDir
+        DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not checked if directory is created, see MkDir
       end
       else
       begin
@@ -257,7 +281,7 @@ begin
         if(yn='y') then // if user type "y" it means "yes"
         begin
           writeln('Downloading "',CommandParams(line,0),'" to '+GetLocalDir+CommandParams(line,1),'" ...');
-          DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not check for directory created, see MkDir
+          DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not checked if directory is created, see MkDir
         end;
         readln;
       end;
@@ -265,7 +289,7 @@ begin
     else  //file does not exists
     begin
       writeln('Downloading "',CommandParams(line,0),'" to "'+GetLocalDir+CommandParams(line,1),'" ...');
-      DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not check for directory created, see MkDir
+      DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not checked if directory is created, see MkDir
     end;
     writeln('OK');
   end
