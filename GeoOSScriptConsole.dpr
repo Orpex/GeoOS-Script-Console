@@ -218,8 +218,8 @@ begin
     begin
       if not(empty(CommandParams(line,2))) then //support for Execute and ExecuteAdmin
       begin
-        writeln('Prompt: '+CommandParams(line,1)+CommandParams(line,2));
-        ReadAndDoCommands(CommandParams(line,1)+CommandParams(line,2));
+        writeln('Prompt: '+CommandParams(line,1)+','+CommandParams(line,2));
+        ReadAndDoCommands(CommandParams(line,1)+','+CommandParams(line,2));
       end
       else
       begin
