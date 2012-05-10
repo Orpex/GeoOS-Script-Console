@@ -173,6 +173,20 @@ begin
   end;
 end;
 
+function CommandParams(str: string; index: integer; commandindex: integer): string; overload;
+begin
+  Split('=',str,CommandSplit1);
+  Split(',',CommandSplit1[commandindex+1],CommandSplit2);
+  if((CommandSplit2.Count-1)>=index) then
+  begin
+    result:=CommandSplit2[index];
+  end
+  else
+  begin
+    result:='';
+  end;
+end;
+
 function RemoveAndReg(reg_loc: string): boolean;
 var
   i: integer;
@@ -203,11 +217,11 @@ begin
   end
   else if(comm='Log') then //Write a message
   begin
-    writeln(par);
+    writeln(StringReplace(par,'_',' ', [rfReplaceAll, rfIgnoreCase]));
   end
   else if(comm='LogEnter') then //Write a message, user need to hit enter to continue with program
   begin
-    write(par);
+    write(StringReplace(par,'_',' ', [rfReplaceAll, rfIgnoreCase]));
     readln;
   end
   else if(comm='PromptYesNo') then //Ask user to do some command, if 'y' is prompt that command will be used
@@ -216,15 +230,15 @@ begin
     read(yn);
     if(yn='y') then
     begin
-      if not(empty(CommandParams(line,2))) then //support for Execute and ExecuteAdmin
+      if not(empty(CommandParams(line,1,1))) then //support for Execute and ExecuteAdmin
       begin
-        writeln('Prompt: '+CommandParams(line,1)+','+CommandParams(line,2));
-        ReadAndDoCommands(CommandParams(line,1)+','+CommandParams(line,2));
+        writeln('You prompt: '+CommandParams(line,1)+'='+CommandParams(line,0,1)+','+CommandParams(line,1,1));
+        ReadAndDoCommands(CommandParams(line,1)+'='+CommandParams(line,0,1)+','+CommandParams(line,1,1));
       end
       else
       begin
-        writeln('Prompt: '+CommandParams(line,1));
-        ReadAndDoCommands(CommandParams(line,1));
+        writeln('You prompt: '+CommandParams(line,1)+'='+CommandParams(line,0,1));
+        ReadAndDoCommands(CommandParams(line,1)+'='+CommandParams(line,0,1));
       end;
     end
     else
