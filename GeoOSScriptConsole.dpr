@@ -15,6 +15,8 @@ uses
   StrUtils,     //some useful string functions, such as AnsiContainsStr
   IdSSLOpenSSL; //for https://
 
+type TWinVersion = (wvUnknown, wvWin95, wvWin98, wvWin98SE, wvWinNT, wvWinME, wvWin2000, wvWinXP, wvWinVista);
+
 var
   paramsraw:                  string;  // implement variables for recognition of
   params:                TStringList;  // program parameters (max up to 50 params)
@@ -25,6 +27,49 @@ var
   antifreeze:          TIdAntiFreeze;  // variable for stopping freezing application, when download
   Handle:                       HWND;  // some handle variable for shellapi
   onlinedirectory:       TStringList;  // variable to hold online script list
+
+function GetWinVersion: TWinVersion; //taken from GeoOS_Main.exe
+ var
+    osVerInfo: TOSVersionInfo;
+    majorVersion, minorVersion: Integer;
+ begin
+    Result := wvUnknown;
+    osVerInfo.dwOSVersionInfoSize := SizeOf(TOSVersionInfo) ;
+    if GetVersionEx(osVerInfo) then
+    begin
+      minorVersion := osVerInfo.dwMinorVersion;
+      majorVersion := osVerInfo.dwMajorVersion;
+      case osVerInfo.dwPlatformId of
+        VER_PLATFORM_WIN32_NT:
+        begin
+          if majorVersion <= 4 then
+            Result := wvWinNT
+          else if (majorVersion = 5) and (minorVersion = 0) then
+            Result := wvWin2000
+          else if (majorVersion = 5) and (minorVersion = 1) then
+            Result := wvWinXP
+          else if (majorVersion = 6) then
+            Result := wvWinVista;
+        end;
+        VER_PLATFORM_WIN32_WINDOWS:
+        begin
+          if (majorVersion = 4) and (minorVersion = 0) then
+            Result := wvWin95
+          else if (majorVersion = 4) and (minorVersion = 10) then
+          begin
+            if osVerInfo.szCSDVersion[1] = 'A' then
+              Result := wvWin98SE
+            else
+              Result := wvWin98;
+          end
+          else if (majorVersion = 4) and (minorVersion = 90) then
+            Result := wvWinME
+          else
+            Result := wvUnknown;
+        end;
+      end;
+    end;
+ end;
 
 function FreeAll(): boolean;
 begin
@@ -315,7 +360,7 @@ begin
     read(yn);
     if(yn='y') then
     begin
-      if not(empty(CommandParams(line,1,1))) then //support for Execute and ExecuteAdmin
+      if not(empty(CommandParams(line,1,1))) then //support for Execute
       begin
         writeln('You prompt: '+CommandParams(line,1)+'='+CommandParams(line,0,1)+','+CommandParams(line,1,1));
         ReadAndDoCommands(CommandParams(line,1)+'='+CommandParams(line,0,1)+','+CommandParams(line,1,1));
@@ -398,16 +443,16 @@ begin
   begin
     if(FileExists(GetLocalDir+CommandParams(line,0))) then
     begin
-      ShellExecute(Handle,'open',PWChar(GetLocalDir+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),1);
-      writeln('File "',CommandParams(line,0),'" executed with "',StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase]),'" parameters.');
-    end;
-  end
-  else if(comm='ExecuteAdmin') then
-  begin
-    if(FileExists(GetLocalDir+CommandParams(line,0))) then
-    begin
-      ShellExecute(Handle,'runas',PWChar(GetLocalDir+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),1);
-      writeln('File "',CommandParams(line,0),'" executed as admin with "',StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase]),'" parameters.');
+      if(GetWinVersion=wvWinVista) then
+      begin
+        ShellExecute(Handle,'runas',PWChar(GetLocalDir+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),1);
+        writeln('File "',CommandParams(line,0),'" executed as admin with "',StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase]),'" parameters.');
+      end
+      else
+      begin
+        ShellExecute(Handle,'open',PWChar(GetLocalDir+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),1);
+        writeln('File "',CommandParams(line,0),'" executed with "',StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase]),'" parameters.');
+      end;
     end;
   end
   else if(comm='DownloadFile') then
