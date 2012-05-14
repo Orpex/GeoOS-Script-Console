@@ -12,7 +12,8 @@ uses
   IdHTTP,       //indy http library for download
   IdAntiFreeze, //indy antifreeze library for stop freezen application, when downloading
   shellapi,     //for accessing shells (in windows :D)
-  StrUtils;     //some useful string functions, such as AnsiContainsStr
+  StrUtils,     //some useful string functions, such as AnsiContainsStr
+  IdSSLOpenSSL; //for https://
 
 var
   paramsraw:                  string;  // implement variables for recognition of
@@ -25,10 +26,28 @@ var
   Handle:                       HWND;  // some handle variable for shellapi
   onlinedirectory:       TStringList;  // variable to hold online script list
 
+function FreeAll(): boolean;
+begin
+  reg.Free;             //release memory from using registry variable
+  params.Free;          //release memory from using stringlist variable
+  CommandSplit1.Free;   //release memory from using main split
+  CommandSplit2.Free;   //release memory from using minor split
+  onlinedirectory.Free;
+  //indy http library is freed on every use of DownloadFile()
+  antifreeze.Free;
+end;
+
+function TerminateMe(): boolean;
+begin
+  FreeAll();
+  Halt(0); //terminate program
+end;
+
 function DownloadFile( const aSourceURL: String;
                    const aDestFileName: String): boolean;
 var
   Stream: TMemoryStream;
+  https: TIdSSLIOHandlerSocketOpenSSL;
 begin
   Result := FALSE;
   fIDHTTP := TIDHTTP.Create;
@@ -38,6 +57,13 @@ begin
   fIDHTTP.Request.Connection := 'Keep-Alive';
   fIDHTTP.Request.ProxyConnection := 'Keep-Alive';
   fIDHTTP.Request.CacheControl := 'no-cache';
+  fIDHTTP.Request.BasicAuthentication := True;
+  //SSL
+  fIDHTTP.ReadTimeout := 0;
+  https := TIdSSLIOHandlerSocketOpenSSL.Create(nil);
+  https.SSLOptions.Method := sslvSSLv3;
+  fIDHTTP.IOHandler:=https;
+  //End of SSL
   //fIDHTTP.OnWork:=IdHTTPWork;
   //fIDHTTP.OnWorkBegin:=IdHTTPWorkBegin;           //this will be for download status -> not needed now
   //fIDHTTP.OnWorkend:=IdHTTPWorkEnd;
@@ -58,6 +84,7 @@ begin
     end;
   finally
     Stream.Free;
+    https.Free;
     fIDHTTP.Free;
   end;
 end;
@@ -121,14 +148,14 @@ end;
 function IsRemote(param: string): boolean; //Local -> false | Remote -> true
 var
   split1: string;
-  //split2: string;
+  split2: string;
   split3: string;
 begin
   split1:=param[1]+param[2]+param[3]+param[4]+param[5]+param[6]+param[7];
-  //split2:=param[1]+param[2]+param[3]+param[4]+param[5]+param[6]+param[7]+param[8]; //SSL not supported
+  split2:=param[1]+param[2]+param[3]+param[4]+param[5]+param[6]+param[7]+param[8];
   split3:=param[1]+param[2]+param[3]+param[4]+param[5]+param[6];
   if(split1='http://') then result:=true        //accepting http:// as remote
-  //else if(split2='https://') then result:=true  //accepting https:// as remote
+  else if(split2='https://') then result:=true  //accepting https:// as remote
   else if(split3='ftp://') then result:=true    //accepting ftp:// as remote
   else result:=false; //everything else is in local computer
 end;
@@ -256,6 +283,10 @@ begin
   if(empty(comm)) then // if command is missing, don't do anything
   begin
     writeln('Command whitespace');
+  end
+  else if((comm='CloseMe') or (comm='TerminateMe')) then
+  begin
+    TerminateMe();
   end
   else if(empty(par)) then // if parameter is missing, don't do anything
   begin
@@ -411,13 +442,6 @@ begin
     end;
     writeln('OK');
   end
-  else if(comm='CloseMe') then
-  begin
-    if(par='1') then
-    begin
-      exit; //terminate program
-    end;
-  end
   else
   begin
     writeln('Command "',comm,'" not found!');
@@ -562,17 +586,6 @@ begin
   antifreeze:=TIdAntiFreeze.Create();
 end;
 
-function FreeAll(): boolean;
-begin
-  reg.Free;           //release memory from using registry variable
-  params.Free;        //release memory from using stringlist variable
-  CommandSplit1.Free; //release memory from using main split
-  CommandSplit2.Free; //release memory from using minor split
-  onlinedirectory.Free;
-  //indy http library is freed on every use of DownloadFile()
-  antifreeze.Free;
-end;
-
 function InsertGos(str: string): string;  //for online database
 begin
   if(AnsiContainsStr(LowerCase(str),'.gos')) then
@@ -642,7 +655,7 @@ begin
             begin
               writeln('Download from online directory failed.');
               readln;
-              exit; //terminate program
+              TerminateMe(); //free memory and terminate program
             end;
           end
           else
@@ -709,7 +722,7 @@ begin
             begin
               writeln('Download from online directory failed.');
               readln;
-              exit; //terminate program
+              TerminateMe(); //free memory and terminate program
             end;
           end
           else
@@ -728,13 +741,13 @@ begin
   begin
     writeln('Parameters are incorrect! Found both -i and -r!');
     readln;
-    exit; //terminate program
+    TerminateMe(); //free memory and terminate program
   end
   else
   begin
     writeln('Parameters are incorrect! Parameters -i or -r weren´t recognized!');
     readln;
-    exit; //terminate program
+    TerminateMe(); //free memory and terminate program
   end;
   FreeAll();
   // THE END
