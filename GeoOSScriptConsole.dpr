@@ -14,14 +14,15 @@ uses
   shellapi;     //for accessing shells (in windows :D)
 
 var
-  paramsraw: string;                   // implement variables for recognition of
-  params: TStringList;                 // program parameters (max up to 50 params)
-  CommandSplit1: TStringList;          // for spliting of commands (main - what is command, and what are parameters)
-  CommandSplit2: TStringList;          // for spliting of commands (minor - if multiple parameters, split them too)
-  reg: TRegistry;                      // variable for accessing Windows registry
-  fIDHTTP: TIdHTTP;                    // variable for downloading
-  antifreeze: TIdAntiFreeze;           // variable for stopping freezing application, when download
-  Handle: HWND;                        // some handle variable for shellapi
+  paramsraw:                  string;  // implement variables for recognition of
+  params:                TStringList;  // program parameters (max up to 50 params)
+  CommandSplit1:         TStringList;  // for spliting of commands (main - what is command, and what are parameters)
+  CommandSplit2:         TStringList;  // for spliting of commands (minor - if multiple parameters, split them too)
+  reg:                     TRegistry;  // variable for accessing Windows registry
+  fIDHTTP:                   TIdHTTP;  // variable for downloading
+  antifreeze:          TIdAntiFreeze;  // variable for stopping freezing application, when download
+  Handle:                       HWND;  // some handle variable for shellapi
+  onlinedirectory:       TStringList;  // variable to hold online script list
 
 function DownloadFile( const aSourceURL: String;
                    const aDestFileName: String): boolean;
@@ -200,6 +201,47 @@ begin
   reg.DeleteKey(reg_loc);
 end;
 
+function CheckDirAndDownloadFile(url: string; path: string): boolean;
+var
+  splitdir:  TStringList;
+  splitdir2: TStringList;
+  option:       smallint;
+  i:             integer;
+  str:            string;
+begin
+  splitdir:=TStringList.Create;
+  splitdir2:=TStringList.Create;
+  str:=GetLocalPath;
+  Split('\',path,splitdir);
+  Split('/',path,splitdir2);
+  if(splitdir.Count>1) then //if \ is used for specified directory
+  begin
+    for i:=0 to splitdir.Count-2 do //make directory for each one of them
+    begin
+      str:=str+splitdir[i];
+      if not(DirectoryExists(str)) then
+      begin
+        MkDir(str);
+      end;
+    end;
+  end;
+  //whitespace
+  if(splitdir2.Count>1) then // / is used for specified directory
+  begin
+    for i:=0 to splitdir2.Count-2 do //make directory for each one of them
+    begin
+      str:=str+splitdir2[i];
+      if not(DirectoryExists(str)) then
+      begin
+        MkDir(str);
+      end;
+    end;
+  end;
+  splitdir.Free;
+  splitdir2.Free;
+  result:=DownloadFile(url,GetLocalPath+path);
+end;
+
 function ReadAndDoCommands(line: string): string; //the most important function!
 var
   comm,par: string;
@@ -207,7 +249,15 @@ var
 begin
   comm:=ReadCommand(line);
   par:=CommandParams(line);
-  if(comm='ScriptName') then
+  if(empty(comm)) then // if command is missing, don't do anything
+  begin
+    writeln('Command whitespace');
+  end
+  else if(empty(par)) then // if parameter is missing, don't do anything
+  begin
+    writeln('Parameter whitespace');
+  end
+  else if(comm='ScriptName') then
   begin
     writeln('Script name: ',par);
   end
@@ -294,7 +344,7 @@ begin
       if(CommandParams(line,2)='overwrite') then
       begin
         writeln('Downloading "',CommandParams(line,0),'" to "'+GetLocalDir+CommandParams(line,1),'" ... autooverwrite');
-        DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not checked if directory is created, see MkDir
+        CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
       end
       else
       begin
@@ -303,7 +353,7 @@ begin
         if(yn='y') then // if user type "y" it means "yes"
         begin
           writeln('Downloading "',CommandParams(line,0),'" to '+GetLocalDir+CommandParams(line,1),'" ...');
-          DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not checked if directory is created, see MkDir
+          CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
         end;
         readln;
       end;
@@ -311,7 +361,7 @@ begin
     else  //file does not exists
     begin
       writeln('Downloading "',CommandParams(line,0),'" to "'+GetLocalDir+CommandParams(line,1),'" ...');
-      DownloadFile(CommandParams(line,0),GetLocalDir+CommandParams(line,1)); //not checked if directory is created, see MkDir
+      CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
     end;
     writeln('OK');
   end
@@ -431,6 +481,7 @@ begin
   params:=TStringList.Create();
   CommandSplit1:=TStringList.Create();
   CommandSplit2:=TStringList.Create();
+  onlinedirectory:=TStringList.Create;
   paramsraw:=LookUpForParams(); //Main initializon for parameters... what to do and everything else
   if(empty(paramsraw)) then //If program didn't find any parameters
   begin
@@ -464,7 +515,8 @@ begin
   params.Free;        //release memory from using stringlist variable
   CommandSplit1.Free; //release memory from using main split
   CommandSplit2.Free; //release memory from using minor split
-  //indy http lybrary is freed on every use of DownloadFile();
+  onlinedirectory.Free;
+  //indy http library is freed on every use of DownloadFile()
   antifreeze.Free;
 end;
 
@@ -505,10 +557,37 @@ begin
       end
       else
       begin
-        //local file not found, parameter for file is incorrect
-        writeln('Parameters are incorrect! Not found proper .gos link!');
-        readln;
-        exit; //terminate program
+        //local file not found, try online directory
+        DownloadFile('http://geodar.hys.cz/geoos/list.goslist',GetLocalDir+'list.goslist');
+        if(FileExists(GetLocalDir+'list.goslist')) then //check if was downloading complete
+        begin
+          onlinedirectory.LoadFromFile(GetLocalDir+'list.goslist');
+          writeln('Reading online directory, found ',onlinedirectory.Count,' scripts.');
+          if not(onlinedirectory.IndexOf(params[GetInitIndex('i')+1])=-1) then
+          begin
+            //is found, download
+            DownloadFile('http://geodar.hys.cz/geoos/'+params[GetInitIndex('i')+1],GetLocalDir+params[GetInitIndex('i')+1]);
+            if(FileExists(GetLocalDir+params[GetInitIndex('i')+1])) then
+            begin
+              writeln('Script downloaded from online directory!');
+              Install(GetLocalDir+params[GetInitIndex('i')+1]);
+            end
+            else
+            begin
+              writeln('Download from online directory failed.');
+              readln;
+              exit; //terminate program
+            end;
+          end
+          else
+          begin
+            writeln('Script doesn´t exists!');
+          end;
+        end
+        else
+        begin
+          writeln('Cannot fetch online directory!');
+        end;
       end;
     end;
   end
@@ -544,10 +623,37 @@ begin
       end
       else
       begin
-        //local file not found, parameter for file is incorrect
-        writeln('Parameters are incorrect! Not found proper .gos link!');
-        readln;
-        exit; //terminate program
+        //local file not found, try online directory
+        DownloadFile('http://geodar.hys.cz/geoos/list.goslist',GetLocalDir+'list.goslist');
+        if(FileExists(GetLocalDir+'list.goslist')) then //check if was downloading complete
+        begin
+          onlinedirectory.LoadFromFile(GetLocalDir+'list.goslist');
+          writeln('Reading online directory, found ',onlinedirectory.Count,' scripts.');
+          if not(onlinedirectory.IndexOf(params[GetInitIndex('r')+1])=-1) then
+          begin
+            //is found, download
+            DownloadFile('http://geodar.hys.cz/geoos/'+params[GetInitIndex('r')+1],GetLocalDir+params[GetInitIndex('r')+1]);
+            if(FileExists(GetLocalDir+params[GetInitIndex('r')+1])) then
+            begin
+              writeln('Script downloaded from online directory!');
+              Install(GetLocalDir+params[GetInitIndex('r')+1]);
+            end
+            else
+            begin
+              writeln('Download from online directory failed.');
+              readln;
+              exit; //terminate program
+            end;
+          end
+          else
+          begin
+            writeln('Script doesn´t exists!');
+          end;
+        end
+        else
+        begin
+          writeln('Cannot fetch online directory!');
+        end;
       end;
     end;
   end
