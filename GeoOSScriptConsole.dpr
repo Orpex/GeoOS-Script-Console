@@ -11,7 +11,8 @@ uses
   Windows,      //declaration and etc., useful for us
   IdHTTP,       //indy http library for download
   IdAntiFreeze, //indy antifreeze library for stop freezen application, when downloading
-  shellapi;     //for accessing shells (in windows :D)
+  shellapi,     //for accessing shells (in windows :D)
+  StrUtils;     //some useful string functions, such as AnsiContainsStr
 
 var
   paramsraw:                  string;  // implement variables for recognition of
@@ -410,6 +411,13 @@ begin
     end;
     writeln('OK');
   end
+  else if(comm='CloseMe') then
+  begin
+    if(par='1') then
+    begin
+      exit; //terminate program
+    end;
+  end
   else
   begin
     writeln('Command "',comm,'" not found!');
@@ -565,6 +573,18 @@ begin
   antifreeze.Free;
 end;
 
+function InsertGos(str: string): string;  //for online database
+begin
+  if(AnsiContainsStr(LowerCase(str),'.gos')) then
+  begin
+    result:=str;
+  end
+  else
+  begin
+    result:=str+'.gos';
+  end;
+end;
+
 begin
   writeln('Starting...'); // Starting of script
   // initialize needed variables
@@ -607,15 +627,16 @@ begin
         if(FileExists(GetLocalDir+'list.goslist')) then //check if was downloading complete
         begin
           onlinedirectory.LoadFromFile(GetLocalDir+'list.goslist');
+          DeleteFile(PWChar(GetLocalDir+'list.goslist')); //save hard drive, 'lol'
           writeln('Reading online directory, found ',onlinedirectory.Count,' scripts.');
-          if not(onlinedirectory.IndexOf(params[GetInitIndex('i')+1])=-1) then
+          if not(onlinedirectory.IndexOf(InsertGos(params[GetInitIndex('i')+1]))=-1) then
           begin
             //is found, download
-            DownloadFile('http://geodar.hys.cz/geoos/'+params[GetInitIndex('i')+1],GetLocalDir+params[GetInitIndex('i')+1]);
-            if(FileExists(GetLocalDir+params[GetInitIndex('i')+1])) then
+            DownloadFile('http://geodar.hys.cz/geoos/'+InsertGos(params[GetInitIndex('i')+1]),GetLocalDir+InsertGos(params[GetInitIndex('i')+1]));
+            if(FileExists(GetLocalDir+InsertGos(params[GetInitIndex('i')+1]))) then
             begin
               writeln('Script downloaded from online directory!');
-              Install(GetLocalDir+params[GetInitIndex('i')+1]);
+              Install(GetLocalDir+InsertGos(params[GetInitIndex('i')+1]));
             end
             else
             begin
@@ -673,15 +694,16 @@ begin
         if(FileExists(GetLocalDir+'list.goslist')) then //check if was downloading complete
         begin
           onlinedirectory.LoadFromFile(GetLocalDir+'list.goslist');
+          DeleteFile(PWChar(GetLocalDir+'list.goslist')); //save hard drive, 'lol'
           writeln('Reading online directory, found ',onlinedirectory.Count,' scripts.');
-          if not(onlinedirectory.IndexOf(params[GetInitIndex('r')+1])=-1) then
+          if not(onlinedirectory.IndexOf(InsertGos(params[GetInitIndex('r')+1]))=-1) then
           begin
             //is found, download
-            DownloadFile('http://geodar.hys.cz/geoos/'+params[GetInitIndex('r')+1],GetLocalDir+params[GetInitIndex('r')+1]);
-            if(FileExists(GetLocalDir+params[GetInitIndex('r')+1])) then
+            DownloadFile('http://geodar.hys.cz/geoos/'+InsertGos(params[GetInitIndex('r')+1]),GetLocalDir+InsertGos(params[GetInitIndex('r')+1]));
+            if(FileExists(GetLocalDir+InsertGos(params[GetInitIndex('r')+1]))) then
             begin
               writeln('Script downloaded from online directory!');
-              Remove(GetLocalDir+params[GetInitIndex('r')+1]);
+              Remove(GetLocalDir+InsertGos(params[GetInitIndex('r')+1]));
             end
             else
             begin
