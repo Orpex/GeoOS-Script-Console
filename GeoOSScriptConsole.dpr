@@ -208,17 +208,20 @@ var
   option:       smallint;
   i:             integer;
   str:            string;
+  hope:          boolean;
 begin
   splitdir:=TStringList.Create;
   splitdir2:=TStringList.Create;
-  str:=GetLocalPath;
+  str:=ExtractFileDir(ParamStr(0));
+  hope:=false;
   Split('\',path,splitdir);
   Split('/',path,splitdir2);
   if(splitdir.Count>1) then //if \ is used for specified directory
   begin
+    hope:=true;
     for i:=0 to splitdir.Count-2 do //make directory for each one of them
     begin
-      str:=str+splitdir[i];
+      str:=str+'\'+splitdir[i];
       if not(DirectoryExists(str)) then
       begin
         MkDir(str);
@@ -226,11 +229,11 @@ begin
     end;
   end;
   //whitespace
-  if(splitdir2.Count>1) then // / is used for specified directory
+  if((splitdir2.Count>1) and not(hope)) then // / is used for specified directory
   begin
     for i:=0 to splitdir2.Count-2 do //make directory for each one of them
     begin
-      str:=str+splitdir2[i];
+      str:=str+'\'+splitdir2[i];
       if not(DirectoryExists(str)) then
       begin
         MkDir(str);
@@ -321,6 +324,44 @@ begin
       writeln('File "',GetLocalDir+par,'" removed.');
     end;
   end
+  else if(comm='CopyFile') then //Copy File
+  begin
+    if(FileExists(GetLocalDir+CommandParams(line,0))) then
+    begin
+      if(FileExists(GetLocalDir+CommandParams(line,1))) then
+      begin
+        if(CommandParams(line,2)='overwrite') then
+        begin
+          CopyFile(PWChar(GetLocalDir+CommandParams(line,0)),PWChar(GetLocalDir+CommandParams(line,1)),false);
+          writeln('File "',GetLocalDir+CommandParams(line,0),'" copied to "',GetLocalDir+CommandParams(line,1),'". autooverwrite');
+        end
+        else
+        begin
+          write('File "',GetLocalDir+CommandParams(line,1),'" already exists, overwrite? [y/n]: ');
+          read(yn);
+          if(yn='y') then // if user type "y" it means "yes"
+          begin
+            CopyFile(PWChar(GetLocalDir+CommandParams(line,0)),PWChar(GetLocalDir+CommandParams(line,1)),false);
+            writeln('File "',GetLocalDir+CommandParams(line,0),'" copied to "',GetLocalDir+CommandParams(line,1),'".');
+          end
+          else
+          begin
+            writeln('OK');
+          end;
+          readln;
+        end;
+      end
+      else
+      begin
+        CopyFile(PWChar(GetLocalDir+CommandParams(line,0)),PWChar(GetLocalDir+CommandParams(line,1)),false);
+        writeln('File "',GetLocalDir+CommandParams(line,0),'" copied to "',GetLocalDir+CommandParams(line,1),'".');
+      end;
+    end
+    else
+    begin
+      writeln('File "',GetLocalDir+CommandParams(line,0),'" copied to "',GetLocalDir+CommandParams(line,1),'" failed! File "',CommandParams(line,0),'" doesn´t exists!');
+    end;
+  end
   else if(comm='Execute') then
   begin
     if(FileExists(GetLocalDir+CommandParams(line,0))) then
@@ -354,6 +395,10 @@ begin
         begin
           writeln('Downloading "',CommandParams(line,0),'" to '+GetLocalDir+CommandParams(line,1),'" ...');
           CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
+        end
+        else
+        begin
+          writeln('OK');
         end;
         readln;
       end;
@@ -416,7 +461,7 @@ begin
     close(f);
     if(ReadCommand(line)='ScriptName') then
     begin
-      CopyFile(PWChar(path),PWChar(GetLocalDir+CommandParams(line)+'.gos'),true);
+      CopyFile(PWChar(path),PWChar(GetLocalDir+CommandParams(line)+'.gos'),false);
       DeleteFile(PWChar(path));
       Install(GetLocalDir+CommandParams(line)+'.gos');
     end
@@ -636,7 +681,7 @@ begin
             if(FileExists(GetLocalDir+params[GetInitIndex('r')+1])) then
             begin
               writeln('Script downloaded from online directory!');
-              Install(GetLocalDir+params[GetInitIndex('r')+1]);
+              Remove(GetLocalDir+params[GetInitIndex('r')+1]);
             end
             else
             begin
