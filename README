@@ -1,3 +1,7 @@
+[options branch]
+Idea to add some options for GeoOSScript, such as background start, interval script
+launch, run on windows login...
+
 GeoOS Script in Console
 
 Want help? We will help you understand our scripting!

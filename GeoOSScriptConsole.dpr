@@ -782,6 +782,11 @@ begin
       end;
     end;
   end
+  else if(SearchForSplitParam('-o')) then
+  begin
+    //set options
+
+  end
   else if(SearchForSplitParam('-i') and SearchForSplitParam('-r')) then
   begin
     writeln('Parameters are incorrect! Found both -i and -r!');
