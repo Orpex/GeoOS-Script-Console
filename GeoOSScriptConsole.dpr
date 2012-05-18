@@ -27,6 +27,7 @@ var
   antifreeze:          TIdAntiFreeze;  // variable for stopping freezing application, when download
   Handle:                       HWND;  // some handle variable for shellapi
   onlinedirectory:       TStringList;  // variable to hold online script list
+  UserOptions:           TStringList;  // holds user options
 
 function GetWinVersion: TWinVersion; //taken from GeoOS_Main.exe
  var
@@ -109,9 +110,6 @@ begin
   https.SSLOptions.Method := sslvSSLv3;
   fIDHTTP.IOHandler:=https;
   //End of SSL
-  //fIDHTTP.OnWork:=IdHTTPWork;
-  //fIDHTTP.OnWorkBegin:=IdHTTPWorkBegin;           //this will be for download status -> not needed now
-  //fIDHTTP.OnWorkend:=IdHTTPWorkEnd;
 
   Stream := TMemoryStream.Create;
   try
@@ -163,6 +161,10 @@ begin
   if(ParamCount()>0) then
   begin
     result:=GetParams();
+  end
+  else
+  begin
+    result:='';
   end;
 end;
 
@@ -207,7 +209,7 @@ end;
 
 function empty(str: string): boolean;
 begin
-  if(str='') then result:=true
+  if(Length(str)=0) then result:=true
   else result:=false;
 end;
 
@@ -516,7 +518,7 @@ begin
     reg.WriteString('Sum',paramsraw);
     reg.WriteString('InstallDir',GetLocalDir);
     reg.CloseKey;
-    writeln('Script completed!');
+    writeln('--- END ---');
   end
   else
   begin
@@ -597,13 +599,57 @@ begin
   end;
 end;
 
+function SetOption(option: string; value: string): boolean;
+begin
+  reg.OpenKey('Software\GeoOS-Script\Options\',true);
+  reg.WriteString(option,value);
+  reg.CloseKey;
+end;
+
+function GetOption(option: string): string;
+begin
+  if(reg.KeyExists('Software\GeoOS-Script\Options\')) then
+  begin
+    reg.OpenKey('Software\GeoOS-Script\Options\',false);
+    if(reg.ValueExists(option)) then
+    begin
+      result:=reg.ReadString(option);
+    end
+    else
+    begin
+      result:='';
+    end;
+    reg.CloseKey;
+  end;
+end;
+
+function GetOptions(): boolean;
+begin
+  if(reg.KeyExists('Software\GeoOS-Script\Options\')) then
+  begin
+    result:=true;
+  end
+  else
+  begin
+    result:=false;
+  end;
+end;
+
 function init(): boolean;
 begin
   paramsraw:='';
   params:=TStringList.Create();
   CommandSplit1:=TStringList.Create();
   CommandSplit2:=TStringList.Create();
-  onlinedirectory:=TStringList.Create;
+  // initialize registry variable
+  reg:=TRegistry.Create();
+  reg.RootKey:=HKEY_CURRENT_USER;
+  UserOptions:=TStringList.Create();
+  if(GetOptions()) then
+  begin
+    writeln('User options loaded.');
+  end;
+  onlinedirectory:=TStringList.Create();
   paramsraw:=LookUpForParams(); //Main initializon for parameters... what to do and everything else
   if(empty(paramsraw)) then //If program didn't find any parameters
   begin
@@ -613,9 +659,6 @@ begin
     paramsraw:=StringReplace(paramsraw,' ','|',[rfReplaceAll, rfIgnoreCase]);
   end;
   Split('|',paramsraw,params); //Get every used param
-  // initialize registry variable
-  reg:=TRegistry.Create();
-  reg.RootKey:=HKEY_CURRENT_USER;
   if(reg.KeyExists('Software\GeoOS-Script\')) then
   begin
     reg.OpenKey('Software\GeoOS-Script\',false);
@@ -785,7 +828,7 @@ begin
   else if(SearchForSplitParam('-o')) then
   begin
     //set options
-
+    SetOption(params[GetInitIndex('o')+1],params[GetInitIndex('o')+2]);
   end
   else if(SearchForSplitParam('-i') and SearchForSplitParam('-r')) then
   begin
