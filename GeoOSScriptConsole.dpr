@@ -687,7 +687,7 @@ begin
 end;
 
 begin
-  writeln('Starting...'); // Starting of script
+  writeln('GeoOS Script in Console starting...'); // Starting of program, simple message
   // initialize needed variables
   init();
   // Now we need if it would be an install (or update) or uninstall (remove or downgrade)
