@@ -492,12 +492,24 @@ begin
   begin
     if(ZipHandler.IsValid(par)) then
     begin
-      ZipHandler.ExtractZipFile(par,GetLocalPath+StringReplace(par,ExtractFileExt(par),'',[rfReplaceAll, rfIgnoreCase])+'\');
+      ZipHandler.ExtractZipFile(par,GetLocalPath+'geoos\');
       writeln('File "',par,'" extracted.');
     end
     else
     begin
       writeln('File "',par,'" is not valid zip file!');
+    end;
+  end
+  else if(comm='ZipExtractTo') then
+  begin
+    if(ZipHandler.IsValid(CommandParams(line,0))) then
+    begin
+      ZipHandler.ExtractZipFile(CommandParams(line,0),GetLocalPath+CommandParams(line,1));
+      writeln('File "',CommandParams(line,0),'" extracted to "',CommandParams(line,1),'".');
+    end
+    else
+    begin
+      writeln('File "',CommandParams(line,0),'" is not valid zip file!');
     end;
   end
   else
