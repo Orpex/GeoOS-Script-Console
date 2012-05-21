@@ -13,7 +13,8 @@ uses
   IdAntiFreeze, //indy antifreeze library for stop freezen application, when downloading
   shellapi,     //for accessing shells (in windows :D)
   StrUtils,     //some useful string functions, such as AnsiContainsStr
-  IdSSLOpenSSL; //for https://
+  IdSSLOpenSSL, //for https://
+  Zip;          //for opening zip files
 
 type TWinVersion = (wvUnknown, wvWin95, wvWin98, wvWin98SE, wvWinNT, wvWinME, wvWin2000, wvWinXP, wvWinVista);
 
@@ -28,6 +29,7 @@ var
   Handle:                       HWND;  // some handle variable for shellapi
   onlinedirectory:       TStringList;  // variable to hold online script list
   UserOptions:           TStringList;  // holds user options
+  ZipHandler:               TZipFile;  // for accessing zip files
 
 function GetWinVersion: TWinVersion; //taken from GeoOS_Main.exe
  var
@@ -78,7 +80,8 @@ begin
   params.Free;          //release memory from using stringlist variable
   CommandSplit1.Free;   //release memory from using main split
   CommandSplit2.Free;   //release memory from using minor split
-  onlinedirectory.Free;
+  onlinedirectory.Free; //release memory from using online directory list
+  ZipHandler.Free;      //release memory from using zip handler
   //indy http library is freed on every use of DownloadFile()
   antifreeze.Free;
 end;
@@ -360,6 +363,7 @@ begin
   begin
     write(StringReplace(CommandParams(line,0),'_',' ', [rfReplaceAll, rfIgnoreCase])+' [y/n]: ');
     read(yn);
+    readln;
     if(yn='y') then
     begin
       if not(empty(CommandParams(line,1,1))) then //support for Execute
@@ -377,7 +381,6 @@ begin
     begin
       writeln('Prompt: Do Nothing');
     end;
-    readln;
   end
   else if(comm='MkDir') then //Create Directory
   begin
@@ -475,11 +478,19 @@ begin
         begin
           writeln('Downloading "',CommandParams(line,0),'" to '+GetLocalDir+CommandParams(line,1),'" ...');
           CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
-        end
-        else
-        begin
-          writeln('OK');
         end;
+      end;
+    end
+    else if(comm='ZipExtract') then
+    begin
+      if(ZipHandler.IsValid(par)) then
+      begin
+        ZipHandler.ExtractZipFile(par,GetLocalPath+par+'\');
+        writeln('File "',par,'" extracted.');
+      end
+      else
+      begin
+        writeln('File "',par,'" is not valid zip file!');
       end;
     end
     else  //file does not exists
@@ -672,6 +683,7 @@ begin
   // initialize indys
   fIDHTTP:=TIdHTTP.Create();
   antifreeze:=TIdAntiFreeze.Create();
+  ZipHandler:=TZipFile.Create();
 end;
 
 function InsertGos(str: string): string;  //for online database
