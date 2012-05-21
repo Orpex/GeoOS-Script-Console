@@ -492,7 +492,7 @@ begin
   begin
     if(ZipHandler.IsValid(par)) then
     begin
-      ZipHandler.ExtractZipFile(par,GetLocalPath+par+'\');
+      ZipHandler.ExtractZipFile(par,GetLocalPath+StringReplace(par,ExtractFileExt(par),'',[rfReplaceAll, rfIgnoreCase])+'\');
       writeln('File "',par,'" extracted.');
     end
     else
