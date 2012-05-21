@@ -418,6 +418,7 @@ begin
         begin
           write('File "',GetLocalDir+CommandParams(line,1),'" already exists, overwrite? [y/n]: ');
           read(yn);
+          readln;
           if(yn='y') then // if user type "y" it means "yes"
           begin
             CopyFile(PWChar(GetLocalDir+CommandParams(line,0)),PWChar(GetLocalDir+CommandParams(line,1)),false);
@@ -427,7 +428,6 @@ begin
           begin
             writeln('OK');
           end;
-          readln;
         end;
       end
       else
@@ -470,6 +470,7 @@ begin
       begin
         write('File "',GetLocalDir+CommandParams(line,1),'" already exists, overwrite? [y/n]: ');
         read(yn);
+        readln;
         if(yn='y') then // if user type "y" it means "yes"
         begin
           writeln('Downloading "',CommandParams(line,0),'" to '+GetLocalDir+CommandParams(line,1),'" ...');
@@ -479,7 +480,6 @@ begin
         begin
           writeln('OK');
         end;
-        readln;
       end;
     end
     else  //file does not exists
@@ -653,7 +653,7 @@ begin
   paramsraw:=LookUpForParams(); //Main initializon for parameters... what to do and everything else
   if(empty(paramsraw)) then //If program didn't find any parameters
   begin
-    write('No parameters detected, write one now: ');
+    write('Write Parameters: ');
     read(paramsraw);
     readln;
     paramsraw:=StringReplace(paramsraw,' ','|',[rfReplaceAll, rfIgnoreCase]);
