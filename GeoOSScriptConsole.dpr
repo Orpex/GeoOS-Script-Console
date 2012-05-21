@@ -481,24 +481,24 @@ begin
         end;
       end;
     end
-    else if(comm='ZipExtract') then
-    begin
-      if(ZipHandler.IsValid(par)) then
-      begin
-        ZipHandler.ExtractZipFile(par,GetLocalPath+par+'\');
-        writeln('File "',par,'" extracted.');
-      end
-      else
-      begin
-        writeln('File "',par,'" is not valid zip file!');
-      end;
-    end
     else  //file does not exists
     begin
       writeln('Downloading "',CommandParams(line,0),'" to "'+GetLocalDir+CommandParams(line,1),'" ...');
       CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
     end;
     writeln('OK');
+  end
+  else if(comm='ZipExtract') then
+  begin
+    if(ZipHandler.IsValid(par)) then
+    begin
+      ZipHandler.ExtractZipFile(par,GetLocalPath+par+'\');
+      writeln('File "',par,'" extracted.');
+    end
+    else
+    begin
+      writeln('File "',par,'" is not valid zip file!');
+    end;
   end
   else
   begin
