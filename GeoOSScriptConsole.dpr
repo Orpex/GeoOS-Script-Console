@@ -624,8 +624,13 @@ end;
 
 function SetOption(option: string; value: string): boolean;
 begin
+  result:=false;
   reg.OpenKey('Software\GeoOS-Script\Options\',true);
   reg.WriteString(option,value);
+  if(reg.ValueExists(option)) then
+  begin
+    result:=true;
+  end;
   reg.CloseKey;
 end;
 
@@ -852,7 +857,14 @@ begin
   else if(SearchForSplitParam('-o')) then
   begin
     //set options
-    SetOption(params[GetInitIndex('o')+1],params[GetInitIndex('o')+2]);
+    if(SetOption(params[GetInitIndex('o')+1],params[GetInitIndex('o')+2])) then
+    begin
+      writeln('Option set!');
+    end
+    else
+    begin
+      writeln('Failed to save data to the registry!');
+    end;
   end
   else if(SearchForSplitParam('-i') and SearchForSplitParam('-r')) then
   begin
