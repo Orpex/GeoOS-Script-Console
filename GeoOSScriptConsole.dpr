@@ -87,8 +87,7 @@ begin
   Halt(0); //terminate program
 end;
 
-function DownloadFile(const url: string;
-    const destinationFileName: string): boolean;
+function DownloadFile(const url: string; const destinationFileName: string): boolean;
 var
   hInet: HINTERNET;
   hFile: HINTERNET;
@@ -97,8 +96,12 @@ var
   bytesRead: DWORD;
 begin
   result:=False;
-  hInet:=InternetOpen(PChar('GeoOSScriptConsole'),INTERNET_OPEN_TYPE_PRECONFIG,nil,nil,0);
+  hInet:=InternetOpen(PChar('GeoOSScriptConsole'),INTERNET_OPEN_TYPE_DIRECT,nil,nil,INTERNET_FLAG_ASYNC);
   hFile:=InternetOpenURL(hInet,PChar(url),nil,0,0,0);
+  if(FileExists(destinationFileName)) then
+  begin
+    DeleteFile(PWChar(destinationFileName));
+  end;
   if Assigned(hFile) then
   begin
     AssignFile(localFile,destinationFileName);
