@@ -322,16 +322,18 @@ begin
   result:=DownloadFile(url,GetLocalPath+path);
 end;
 
-function ReadAndDoCommands(line: string): string; //the most important function!
+function ReadAndDoCommands(line: string): boolean; //the most important function!
 var
   comm,par: string;
   yn: char;
 begin
   comm:=ReadCommand(line);
   par:=CommandParams(line);
+  result:=true;
   if(empty(comm)) then // if command is missing, don't do anything
   begin
     writeln('Command whitespace');
+    result:=false;
   end
   else if((comm='CloseMe') or (comm='TerminateMe')) then
   begin
@@ -340,6 +342,7 @@ begin
   else if(empty(par)) then // if parameter is missing, don't do anything
   begin
     writeln('Parameter whitespace');
+    result:=false;
   end
   else if(comm='ScriptName') then
   begin
@@ -514,6 +517,7 @@ begin
   else
   begin
     writeln('Command "',comm,'" not found!');
+    result:=false;
   end;
 end;
 
@@ -863,6 +867,18 @@ begin
     else
     begin
       writeln('Failed to save data to the registry!');
+    end;
+  end
+  else if(SearchForSplitParam('-c')) then
+  begin
+    //use simple command
+    if(ReadAndDoCommands(params[GetInitIndex('c')+1])) then
+    begin
+      writeln('Executed');
+    end
+    else
+    begin
+      writeln('Not executed');
     end;
   end
   else if(SearchForSplitParam('-i') and SearchForSplitParam('-r')) then
