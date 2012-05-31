@@ -96,8 +96,8 @@ var
   bytesRead: DWORD;
 begin
   result:=False;
-  hInet:=InternetOpen(PChar('GeoOSScriptConsole'),INTERNET_OPEN_TYPE_DIRECT,nil,nil,INTERNET_FLAG_ASYNC);
-  hFile:=InternetOpenURL(hInet,PChar(url),nil,0,0,0);
+  hInet:=InternetOpen(PChar('GeoOSScriptConsole'),INTERNET_OPEN_TYPE_DIRECT,nil,nil,0);
+  hFile:=InternetOpenURL(hInet,PChar(url),nil,0,INTERNET_FLAG_NO_CACHE_WRITE,0);
   if(FileExists(destinationFileName)) then
   begin
     DeleteFile(PWChar(destinationFileName));
