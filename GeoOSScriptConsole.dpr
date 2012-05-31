@@ -9,11 +9,10 @@ uses
   Classes,      //some useful classes
   Registry,     //implement Windows registry
   Windows,      //declaration and etc., useful for us
-  IdHTTP,       //indy http library for download
+  WinINet,      //http library for downloading
   IdAntiFreeze, //indy antifreeze library for stop freezen application, when downloading
   shellapi,     //for accessing shells (in windows :D)
   StrUtils,     //some useful string functions, such as AnsiContainsStr
-  IdSSLOpenSSL, //for https://
   Zip;          //for opening zip files
 
 type TWinVersion = (wvUnknown, wvWin95, wvWin98, wvWin98SE, wvWinNT, wvWinME, wvWin2000, wvWinXP, wvWinVista);
@@ -24,8 +23,6 @@ var
   CommandSplit1:         TStringList;  // for spliting of commands (main - what is command, and what are parameters)
   CommandSplit2:         TStringList;  // for spliting of commands (minor - if multiple parameters, split them too)
   reg:                     TRegistry;  // variable for accessing Windows registry
-  fIDHTTP:                   TIdHTTP;  // variable for downloading
-  antifreeze:          TIdAntiFreeze;  // variable for stopping freezing application, when download
   Handle:                       HWND;  // some handle variable for shellapi
   onlinedirectory:       TStringList;  // variable to hold online script list
   UserOptions:           TStringList;  // holds user options
@@ -82,8 +79,6 @@ begin
   CommandSplit2.Free;   //release memory from using minor split
   onlinedirectory.Free; //release memory from using online directory list
   ZipHandler.Free;      //release memory from using zip handler
-  //indy http library is freed on every use of DownloadFile()
-  antifreeze.Free;
 end;
 
 function TerminateMe(): boolean;
@@ -92,47 +87,31 @@ begin
   Halt(0); //terminate program
 end;
 
-function DownloadFile( const aSourceURL: String;
-                   const aDestFileName: String): boolean;
+function DownloadFile(const url: string;
+    const destinationFileName: string): boolean;
 var
-  Stream: TMemoryStream;
-  https: TIdSSLIOHandlerSocketOpenSSL;
+  hInet: HINTERNET;
+  hFile: HINTERNET;
+  localFile: File;
+  buffer: array[1..1024] of byte;
+  bytesRead: DWORD;
 begin
-  Result := FALSE;
-  fIDHTTP := TIDHTTP.Create;
-  fIDHTTP.HandleRedirects := TRUE;
-  fIDHTTP.AllowCookies := FALSE;
-  fIDHTTP.Request.UserAgent := 'Mozilla/4.0';
-  fIDHTTP.Request.Connection := 'Keep-Alive';
-  fIDHTTP.Request.ProxyConnection := 'Keep-Alive';
-  fIDHTTP.Request.CacheControl := 'no-cache';
-  fIDHTTP.Request.BasicAuthentication := True;
-  //SSL
-  fIDHTTP.ReadTimeout := 0;
-  https := TIdSSLIOHandlerSocketOpenSSL.Create(nil);
-  https.SSLOptions.Method := sslvSSLv23;
-  fIDHTTP.IOHandler:=https;
-  //End of SSL
-
-  Stream := TMemoryStream.Create;
-  try
-    try
-      fIDHTTP.Get(aSourceURL, Stream);
-      if FileExists(aDestFileName) then
-        DeleteFile(PWideChar(aDestFileName));
-      Stream.SaveToFile(aDestFileName);
-      Result := TRUE;
-    except
-      On E: Exception do
-        begin
-          Result := FALSE;
-        end;
-    end;
-  finally
-    Stream.Free;
-    https.Free;
-    fIDHTTP.Free;
+  result:=False;
+  hInet:=InternetOpen(PChar('GeoOSScriptConsole'),INTERNET_OPEN_TYPE_PRECONFIG,nil,nil,0);
+  hFile:=InternetOpenURL(hInet,PChar(url),nil,0,0,0);
+  if Assigned(hFile) then
+  begin
+    AssignFile(localFile,destinationFileName);
+    Rewrite(localFile,1);
+    repeat
+      InternetReadFile(hFile,@buffer,SizeOf(buffer),bytesRead);
+      BlockWrite(localFile,buffer,bytesRead);
+    until bytesRead = 0;
+    CloseFile(localFile);
+    result:=true;
+    InternetCloseHandle(hFile);
   end;
+  InternetCloseHandle(hInet);
 end;
 
 procedure Split(Delimiter: Char; Str: string; ListOfStrings: TStrings); // Split what we need
@@ -700,9 +679,6 @@ begin
     reg.OpenKey('Software\GeoOS-Script\',false);
   end;
   // end of inicializing of registry variable
-  // initialize indys
-  fIDHTTP:=TIdHTTP.Create();
-  antifreeze:=TIdAntiFreeze.Create();
   ZipHandler:=TZipFile.Create();
 end;
 
