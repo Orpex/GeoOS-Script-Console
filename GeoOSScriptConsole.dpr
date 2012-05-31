@@ -110,7 +110,7 @@ begin
   //SSL
   fIDHTTP.ReadTimeout := 0;
   https := TIdSSLIOHandlerSocketOpenSSL.Create(nil);
-  https.SSLOptions.Method := sslvSSLv3;
+  https.SSLOptions.Method := sslvSSLv23;
   fIDHTTP.IOHandler:=https;
   //End of SSL
 
@@ -306,7 +306,6 @@ begin
       end;
     end;
   end;
-  //whitespace
   if((splitdir2.Count>1) and not(hope)) then // / is used for specified directory
   begin
     for i:=0 to splitdir2.Count-2 do //make directory for each one of them
