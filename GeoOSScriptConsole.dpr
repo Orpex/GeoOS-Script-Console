@@ -306,11 +306,12 @@ end;
 
 function ReadAndDoCommands(line: string): boolean; //the most important function!
 var
-  comm,par: string;
+  comm,par,tmp: string;
   yn: char;
 begin
   comm:=ReadCommand(line);
   par:=CommandParams(line);
+  tmp:='';
   result:=true;
   if(empty(comm)) then // if command is missing, don't do anything
   begin
@@ -350,7 +351,12 @@ begin
     readln;
     if(yn='y') then
     begin
-      if not(empty(CommandParams(line,1,1))) then //support for Execute
+      if not(empty(CommandParams(line,1,2))) then //support for Execute
+      begin
+        writeln('You prompt: '+CommandParams(line,1)+'='+CommandParams(line,0,1)+','+CommandParams(line,1,1)+','+CommandParams(line,1,2));
+        ReadAndDoCommands(CommandParams(line,1)+'='+CommandParams(line,0,1)+','+CommandParams(line,1,1)+','+CommandParams(line,1,2));
+      end
+      else if not(empty(CommandParams(line,1,1))) then //support for CopyFile
       begin
         writeln('You prompt: '+CommandParams(line,1)+'='+CommandParams(line,0,1)+','+CommandParams(line,1,1));
         ReadAndDoCommands(CommandParams(line,1)+'='+CommandParams(line,0,1)+','+CommandParams(line,1,1));
@@ -432,14 +438,29 @@ begin
   begin
     if(FileExists(GetLocalDir+CommandParams(line,0))) then
     begin
+      if not(empty(CommandParams(line,2))) then
+      begin
+        if(CommandParams(line,2)='0') then
+        begin
+          tmp:='0';
+        end
+        else
+        begin
+          tmp:='1';
+        end;
+      end
+      else
+      begin
+        tmp:='1';
+      end;
       if(GetWinVersion=wvWinVista) then
       begin
-        ShellExecute(Handle,'runas',PWChar(GetLocalDir+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),1);
+        ShellExecute(Handle,'runas',PWChar(GetLocalDir+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),StrToInt(tmp));
         writeln('File "',CommandParams(line,0),'" executed as admin with "',StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase]),'" parameters.');
       end
       else
       begin
-        ShellExecute(Handle,'open',PWChar(GetLocalDir+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),1);
+        ShellExecute(Handle,'open',PWChar(GetLocalDir+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),StrToInt(tmp));
         writeln('File "',CommandParams(line,0),'" executed with "',StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase]),'" parameters.');
       end;
     end;
