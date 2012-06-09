@@ -10,7 +10,6 @@ uses
   Registry,     //implement Windows registry
   Windows,      //declaration and etc., useful for us
   WinINet,      //http library for downloading
-  IdAntiFreeze, //indy antifreeze library for stop freezen application, when downloading
   shellapi,     //for accessing shells (in windows :D)
   StrUtils,     //some useful string functions, such as AnsiContainsStr
   Zip;          //for opening zip files
@@ -27,6 +26,7 @@ var
   onlinedirectory:       TStringList;  // variable to hold online script list
   UserOptions:           TStringList;  // holds user options
   ZipHandler:               TZipFile;  // for accessing zip files
+  p:                         integer;  // variable for main program cycles
 
 function GetWinVersion: TWinVersion; //taken from GeoOS_Main.exe
  var
@@ -97,7 +97,7 @@ var
 begin
   result:=False;
   hInet:=InternetOpen(PChar('GeoOSScriptConsole'),INTERNET_OPEN_TYPE_DIRECT,nil,nil,0);
-  hFile:=InternetOpenURL(hInet,PChar(url),nil,0,INTERNET_FLAG_PRAGMA_NOCACHE,0);
+  hFile:=InternetOpenURL(hInet,PChar(url),nil,0,INTERNET_FLAG_NO_CACHE_WRITE,0);
   if(FileExists(destinationFileName)) then
   begin
     DeleteFile(PWChar(destinationFileName));
@@ -858,6 +858,25 @@ begin
     else
     begin
       writeln('Not executed');
+    end;
+  end
+  else if(SearchForSplitParam('-l')) then
+  begin
+    //list online directory
+    DownloadFile('http://geodar.hys.cz/geoos/list.goslist',GetLocalDir+'list.goslist');
+    if(FileExists(GetLocalDir+'list.goslist')) then //check if was downloading complete
+    begin
+      onlinedirectory.LoadFromFile(GetLocalDir+'list.goslist');
+      DeleteFile(PWChar(GetLocalDir+'list.goslist')); //save hard drive, 'lol'
+      writeln('Reading online directory, found ',onlinedirectory.Count,' scripts.');
+      for p:=0 to onlinedirectory.Count-1 do
+      begin
+        writeln(onlinedirectory[p]);
+      end;
+    end
+    else
+    begin
+      writeln('Can´t read online directory!');
     end;
   end
   else if(SearchForSplitParam('-i') and SearchForSplitParam('-r')) then
