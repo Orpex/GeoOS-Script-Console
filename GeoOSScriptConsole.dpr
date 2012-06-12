@@ -860,6 +860,18 @@ begin
       writeln('Not executed');
     end;
   end
+  else if(SearchForSplitParam('-e')) then
+  begin
+    //use simple command
+    if(ReadAndDoCommands(params[GetInitIndex('e')+1])) then
+    begin
+      writeln('Executed');
+    end
+    else
+    begin
+      writeln('Not executed');
+    end;
+  end
   else if(SearchForSplitParam('-l')) then
   begin
     //list online directory
