@@ -28,10 +28,7 @@ begin
   gfunctions.FreeAll();
   reg.Free;             //release memory from using registry variable
   params.Free;          //release memory from using stringlist variable
-  CommandSplit1.Free;   //release memory from using main split
-  CommandSplit2.Free;   //release memory from using minor split
   onlinedirectory.Free; //release memory from using online directory list
-  ZipHandler.Free;      //release memory from using zip handler
 end;
 
 function TerminateMe(): boolean;
@@ -265,9 +262,7 @@ function init(): boolean;
 begin
   paramsraw:='';
   params:=TStringList.Create();
-  CommandSplit1:=TStringList.Create();
-  CommandSplit2:=TStringList.Create();
-  // initialize registry variable
+  //initialize registry variable
   reg:=TRegistry.Create();
   reg.RootKey:=HKEY_CURRENT_USER;
   UserOptions:=TStringList.Create();
@@ -276,7 +271,7 @@ begin
     writeln('User options loaded.');
   end;
   onlinedirectory:=TStringList.Create();
-  paramsraw:=gfunctions.LookUpForParams(); //Main initializon for parameters... what to do and everything else
+  paramsraw:=gfunctions.LookUpForParams(); //Main initialization for parameters... what to do and everything else
   if(empty(paramsraw)) then //If program didn't find any parameters
   begin
     write('Write Parameters: ');
@@ -498,6 +493,7 @@ begin
       begin
         writeln(onlinedirectory[p]);
       end;
+      writeln('Reading online directory, found ',onlinedirectory.Count,' scripts.');
     end
     else
     begin
