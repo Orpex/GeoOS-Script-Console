@@ -6,7 +6,7 @@ interface
 
   type TWinVersion = (wvUnknown, wvWin95, wvWin98, wvWin98SE, wvWinNT, wvWinME, wvWin2000, wvWinXP, wvWinVista);
 
-  type functions = class
+  type functions = record
     public
     function GetWinVersion: TWinVersion; stdcall;
     function FreeAll(): boolean; stdcall;

@@ -295,6 +295,7 @@ begin
     reg.OpenKey('Software\GeoOS-Script\',false);
   end;
   // end of inicializing of registry variable
+  gfunctions.init();
 end;
 
 function InsertGos(str: string): string;  //for online database
