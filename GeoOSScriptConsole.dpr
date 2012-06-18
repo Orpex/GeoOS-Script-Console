@@ -5,14 +5,14 @@
 {$R *.res}
 
 uses
-  SysUtils,                                           //basic utils
-  Classes,                                            //some useful classes
-  Registry,                                           //implement Windows registry
-  Windows,                                            //declaration and etc., useful for us
-  WinINet,                                            //http library for downloading
-  shellapi,                                           //for accessing shells (in windows :D)
-  StrUtils,                                           //some useful string functions, such as AnsiContainsStr
-  GeoOSScriptFunctions in 'GeoOSScriptFunctions.pas'; //functions file
+  SysUtils,                                           // basic utils
+  Classes,                                            // some useful classes
+  Registry,                                           // implement Windows registry
+  Windows,                                            // declaration and etc., useful for us
+  WinINet,                                            // http library for downloading files
+  shellapi,                                           // windows run scripts
+  StrUtils,                                           // some useful string functions, such as AnsiContainsStr
+  GeoOSScriptFunctions in 'GeoOSScriptFunctions.pas'; // functions file
 
 var
   paramsraw:                            string;  // implement variables for recognition of
@@ -21,7 +21,7 @@ var
   onlinedirectory:                 TStringList;  // variable to hold online script list
   UserOptions:                     TStringList;  // holds user options
   p:                                   integer;  // variable for main program cycles
-  gfunctions:   GeoOSScriptFunctions.functions;
+  gfunctions:   GeoOSScriptFunctions.functions;  // load functions to program
 
 function FreeAll(): boolean;
 begin
@@ -70,17 +70,10 @@ begin
 end;
 
 function IsRemote(param: string): boolean; //Local -> false | Remote -> true
-var
-  split1: string;
-  split2: string;
-  split3: string;
 begin
-  split1:=param[1]+param[2]+param[3]+param[4]+param[5]+param[6]+param[7];
-  split2:=param[1]+param[2]+param[3]+param[4]+param[5]+param[6]+param[7]+param[8];
-  split3:=param[1]+param[2]+param[3]+param[4]+param[5]+param[6];
-  if(split1='http://') then result:=true        //accepting http:// as remote
-  else if(split2='https://') then result:=true  //accepting https:// as remote
-  else if(split3='ftp://') then result:=true    //accepting ftp:// as remote
+  if(MidStr(param,1,7)='http://') then result:=true        //accepting http:// as remote
+  else if(MidStr(param,1,8)='https://') then result:=true  //accepting https:// as remote
+  else if(MidStr(param,1,6)='ftp://') then result:=true    //accepting ftp:// as remote
   else result:=false; //everything else is in local computer
 end;
 

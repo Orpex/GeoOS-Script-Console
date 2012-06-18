@@ -2,7 +2,7 @@ unit GeoOSScriptFunctions;
 
 interface
   uses
-    Windows, WinINet, SysUtils, Classes, Registry, shellapi, Zip, StrUtils;
+    Windows, WinINet, SysUtils, Classes, shellapi, Zip, StrUtils;
 
   type TWinVersion = (wvUnknown, wvWin95, wvWin98, wvWin98SE, wvWinNT, wvWinME, wvWin2000, wvWinXP, wvWinVista);
 
