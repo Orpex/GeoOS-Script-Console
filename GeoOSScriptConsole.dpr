@@ -449,28 +449,31 @@ begin
       writeln('Failed to save data to the registry!');
     end;
   end
-  else if(SearchForSplitParam('-c')) then
+  else if(SearchForSplitParam('-c') or SearchForSplitParam('-e')) then
   begin
     //use simple command
-    if(gfunctions.ReadAndDoCommands(params[GetInitIndex('c')+1])) then
+    if(SearchForSplitParam('-e')) then
     begin
-      writeln('Executed');
+      if(gfunctions.ReadAndDoCommands(params[GetInitIndex('e')+1])) then
+      begin
+        writeln('Executed');
+      end
+      else
+      begin
+        writeln('Not executed');
+      end;
     end
     else
+    if(SearchForSplitParam('-c')) then
     begin
-      writeln('Not executed');
-    end;
-  end
-  else if(SearchForSplitParam('-e')) then
-  begin
-    //use simple command
-    if(gfunctions.ReadAndDoCommands(params[GetInitIndex('e')+1])) then
-    begin
-      writeln('Executed');
-    end
-    else
-    begin
-      writeln('Not executed');
+      if(gfunctions.ReadAndDoCommands(params[GetInitIndex('c')+1])) then
+      begin
+        writeln('Executed');
+      end
+      else
+      begin
+        writeln('Not executed');
+      end;
     end;
   end
   else if(SearchForSplitParam('-l')) then
