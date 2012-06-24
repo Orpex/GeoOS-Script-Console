@@ -142,25 +142,17 @@ var
 begin
   returnstr:='';
   if(ParamCount()>0) then
-  begin
     for i:=1 to ParamCount() do
-    begin
       returnstr:=returnstr+ParamStr(i)+'|';
-    end;
-  end;
   result:=returnstr;
 end;
 
 function functions.LookUpForParams(): string; //Search, how many and what parameters are used
 begin
   if(ParamCount()>0) then
-  begin
-    result:=GetParams();
-  end
+    result:=GetParams()
   else
-  begin
     result:='';
-  end;
 end;
 
 function functions.ReadCommand(str: string): string;
@@ -180,13 +172,9 @@ begin
   Split('=',str,CommandSplit1);
   Split(',',CommandSplit1[1],CommandSplit2);
   if((CommandSplit2.Count-1)>=index) then
-  begin
-    result:=CommandSplit2[index];
-  end
+    result:=CommandSplit2[index]
   else
-  begin
     result:='';
-  end;
 end;
 
 function functions.CommandParams(str: string; index: integer; commandindex: integer): string;
@@ -194,13 +182,9 @@ begin
   Split('=',str,CommandSplit1);
   Split(',',CommandSplit1[commandindex+1],CommandSplit2);
   if((CommandSplit2.Count-1)>=index) then
-  begin
-    result:=CommandSplit2[index];
-  end
+    result:=CommandSplit2[index]
   else
-  begin
     result:='';
-  end;
 end;
 
 function functions.CheckDirAndDownloadFile(url: string; path: string): boolean;
@@ -225,9 +209,7 @@ begin
     begin
       str:=str+'\'+splitdir[i];
       if not(DirectoryExists(str)) then
-      begin
         MkDir(str);
-      end;
     end;
   end;
   if((splitdir2.Count>1) and not(hope)) then // / is used for specified directory
@@ -236,9 +218,7 @@ begin
     begin
       str:=str+'\'+splitdir2[i];
       if not(DirectoryExists(str)) then
-      begin
         MkDir(str);
-      end;
     end;
   end;
   splitdir.Free;
@@ -268,6 +248,7 @@ begin
   else if((comm='CloseMe') or (comm='TerminateMe')) then
   begin
     TerminateMe();
+    result:=true;
   end
   else if(empty(par)) then // if parameter is missing, don't do anything
   begin
@@ -275,17 +256,11 @@ begin
     result:=false;
   end
   else if(comm='ScriptName') then
-  begin
-    writeln('Script name: ',par);
-  end
+    writeln('Script name: ',par)
   else if(comm='Author') then //Write script's author
-  begin
-    writeln('Script´s Author: ',par);
-  end
+    writeln('Script´s Author: ',par)
   else if(comm='Log') then //Write a message
-  begin
-    writeln(StringReplace(par,'_',' ', [rfReplaceAll, rfIgnoreCase]));
-  end
+    writeln(StringReplace(par,'_',' ', [rfReplaceAll, rfIgnoreCase]))
   else if(comm='LogEnter') then //Write a message, user need to hit enter to continue with program
   begin
     write(StringReplace(par,'_',' ', [rfReplaceAll, rfIgnoreCase]));
@@ -310,9 +285,7 @@ begin
       end;
     end
     else
-    begin
       writeln('Prompt: Do Nothing');
-    end;
   end
   else if(comm='MkDir') then //Create Directory
   begin
@@ -360,9 +333,7 @@ begin
             writeln('File "',GetLocalDir+CommandParams(line,0),'" copied to "',GetLocalDir+CommandParams(line,1),'".');
           end
           else
-          begin
             writeln('OK');
-          end;
         end;
       end
       else
@@ -372,9 +343,7 @@ begin
       end;
     end
     else
-    begin
       writeln('File "',GetLocalDir+CommandParams(line,0),'" copied to "',GetLocalDir+CommandParams(line,1),'" failed! File "',CommandParams(line,0),'" doesn´t exists!');
-    end;
   end
   else if(comm='Execute') then
   begin
@@ -428,9 +397,7 @@ begin
       writeln('File "',par,'" extracted.');
     end
     else
-    begin
       writeln('File "',par,'" is not valid zip file!');
-    end;
   end
   else if(comm='ZipExtractTo') then
   begin
@@ -440,9 +407,7 @@ begin
       writeln('File "',CommandParams(line,0),'" extracted to "',CommandParams(line,1),'".');
     end
     else
-    begin
       writeln('File "',CommandParams(line,0),'" is not valid zip file!');
-    end;
   end
   else
   begin
