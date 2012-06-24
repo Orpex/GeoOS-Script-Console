@@ -51,13 +51,9 @@ begin
   index:=-1;  //because index cannot be negative
   index:=params.IndexOf(param);
   if not(index=-1) then //if index of given searched string isn't found, value of 'index' is still -1 (not found)
-  begin
-    result:=true; //param is found
-  end
+    result:=true //param is found
   else
-  begin
     result:=false; //param is not found
-  end;
 end;
 
 function GetInitIndex(param: char): integer; //gets index of -i or -i parameters (of ParamStrs)
@@ -118,9 +114,7 @@ begin
   if(gfunctions.ReadCommand(line)='ScriptName') then
   begin
     if(reg.KeyExists('Software\GeoOS-Script\'+gfunctions.CommandParams(line))) then //if exists -> update
-    begin
       RemoveAndReg('Software\GeoOS-Script\'+gfunctions.CommandParams(line)); //delete previosly version
-    end;
     repeat
       readln(f,line);
       gfunctions.ReadAndDoCommands(line);
@@ -132,9 +126,7 @@ begin
     writeln('--- END ---');
   end
   else
-  begin
     writeln('Invalid Script Name!');
-  end;
   close(f);
 end;
 
@@ -162,9 +154,7 @@ begin
     end;
   end
   else
-  begin
     Install(path);
-  end;
 end;
 
 function Remove(path: string): boolean; overload;
@@ -205,9 +195,7 @@ begin
     end;
   end
   else
-  begin
     Remove(path);
-  end;
 end;
 
 function SetOption(option: string; value: string): boolean;
@@ -216,9 +204,7 @@ begin
   reg.OpenKey('Software\GeoOS-Script\Options\',true);
   reg.WriteString(option,value);
   if(reg.ValueExists(option)) then
-  begin
     result:=true;
-  end;
   reg.CloseKey;
 end;
 
@@ -228,13 +214,9 @@ begin
   begin
     reg.OpenKey('Software\GeoOS-Script\Options\',false);
     if(reg.ValueExists(option)) then
-    begin
-      result:=reg.ReadString(option);
-    end
+      result:=reg.ReadString(option)
     else
-    begin
       result:='';
-    end;
     reg.CloseKey;
   end;
 end;
@@ -242,13 +224,9 @@ end;
 function GetOptions(): boolean;
 begin
   if(reg.KeyExists('Software\GeoOS-Script\Options\')) then
-  begin
-    result:=true;
-  end
+    result:=true
   else
-  begin
     result:=false;
-  end;
 end;
 
 function init(): boolean;
@@ -260,9 +238,7 @@ begin
   reg.RootKey:=HKEY_CURRENT_USER;
   UserOptions:=TStringList.Create();
   if(GetOptions()) then
-  begin
     writeln('User options loaded.');
-  end;
   onlinedirectory:=TStringList.Create();
   paramsraw:=gfunctions.LookUpForParams(); //Main initialization for parameters... what to do and everything else
   if(empty(paramsraw)) then //If program didn't find any parameters
@@ -274,9 +250,7 @@ begin
   end;
   Split('|',paramsraw,params); //Get every used param
   if(reg.KeyExists('Software\GeoOS-Script\')) then
-  begin
-    reg.OpenKey('Software\GeoOS-Script\',false);
-  end
+    reg.OpenKey('Software\GeoOS-Script\',false)
   else
   begin
     reg.CreateKey('Software\GeoOS-Script\');
@@ -289,13 +263,9 @@ end;
 function InsertGos(str: string): string;  //for online database
 begin
   if(AnsiContainsStr(LowerCase(str),'.gos')) then
-  begin
-    result:=str;
-  end
+    result:=str
   else
-  begin
     result:=str+'.gos';
-  end;
 end;
 
 begin
@@ -317,22 +287,14 @@ begin
         Install(GetLocalDir+'tmpscript.gos',true);
       end
       else
-      begin
         writeln('Script not found!');
-      end;
     end
     else // parameter after -i is local? check it
     begin
-      if(FileExists(params[GetInitIndex('i')+1])) then
-      begin
-        //file exists in computer
-        Install(params[GetInitIndex('i')+1]);
-      end
-      else if(FileExists(GetLocalDir+ParamStr(GetInitIndex('i')+1))) then
-      begin
-        //file exists in local directory
-        Install(GetLocalDir+params[GetInitIndex('i')+1]);
-      end
+      if(FileExists(params[GetInitIndex('i')+1])) then //file exists in computer
+        Install(params[GetInitIndex('i')+1])
+      else if(FileExists(GetLocalDir+ParamStr(GetInitIndex('i')+1))) then //file exists in local directory
+        Install(GetLocalDir+params[GetInitIndex('i')+1])
       else
       begin
         //local file not found, try online directory
@@ -359,14 +321,10 @@ begin
             end;
           end
           else
-          begin
             writeln('Script doesn´t exists!');
-          end;
         end
         else
-        begin
           writeln('Cannot fetch online directory!');
-        end;
       end;
     end;
   end
@@ -384,22 +342,14 @@ begin
         Remove(GetLocalDir+'tmpscript.gos',true);
       end
       else
-      begin
         writeln('Script not found!');
-      end;
     end
     else // parameter after -i is local? check it
     begin
-      if(FileExists(params[GetInitIndex('r')+1])) then
-      begin
-        //file exists in computer
-        Remove(params[GetInitIndex('r')+1]);
-      end
-      else if(FileExists(GetLocalDir+ParamStr(GetInitIndex('r')+1))) then
-      begin
-        //file exists in local directory
-        Remove(GetLocalDir+params[GetInitIndex('r')+1]);
-      end
+      if(FileExists(params[GetInitIndex('r')+1])) then //file exists in computer
+        Remove(params[GetInitIndex('r')+1])
+      else if(FileExists(GetLocalDir+ParamStr(GetInitIndex('r')+1))) then //file exists in local directory
+        Remove(GetLocalDir+params[GetInitIndex('r')+1])
       else
       begin
         //local file not found, try online directory
@@ -426,14 +376,10 @@ begin
             end;
           end
           else
-          begin
             writeln('Script doesn´t exists!');
-          end;
         end
         else
-        begin
           writeln('Cannot fetch online directory!');
-        end;
       end;
     end;
   end
@@ -441,13 +387,9 @@ begin
   begin
     //set options
     if(SetOption(params[GetInitIndex('o')+1],params[GetInitIndex('o')+2])) then
-    begin
-      writeln('Option set!');
-    end
+      writeln('Option set!')
     else
-    begin
       writeln('Failed to save data to the registry!');
-    end;
   end
   else if(SearchForSplitParam('-c') or SearchForSplitParam('-e')) then
   begin
@@ -455,25 +397,17 @@ begin
     if(SearchForSplitParam('-e')) then
     begin
       if(gfunctions.ReadAndDoCommands(params[GetInitIndex('e')+1])) then
-      begin
-        writeln('Executed');
-      end
+        writeln('Executed')
       else
-      begin
         writeln('Not executed');
-      end;
     end
     else
     if(SearchForSplitParam('-c')) then
     begin
       if(gfunctions.ReadAndDoCommands(params[GetInitIndex('c')+1])) then
-      begin
-        writeln('Executed');
-      end
+        writeln('Executed')
       else
-      begin
         writeln('Not executed');
-      end;
     end;
   end
   else if(SearchForSplitParam('-l')) then
@@ -486,15 +420,11 @@ begin
       DeleteFile(PWChar(GetLocalDir+'list.goslist')); //save hard drive, 'lol'
       writeln('Reading online directory, found ',onlinedirectory.Count,' scripts.');
       for p:=0 to onlinedirectory.Count-1 do
-      begin
         writeln(onlinedirectory[p]);
-      end;
       writeln('Reading online directory, found ',onlinedirectory.Count,' scripts.');
     end
     else
-    begin
       writeln('Can´t read online directory!');
-    end;
   end
   else if(SearchForSplitParam('-i') and SearchForSplitParam('-r')) then
   begin
