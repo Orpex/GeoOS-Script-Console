@@ -20,6 +20,8 @@ interface
     function CheckDirAndDownloadFile(url: string; path: string): boolean; stdcall;
     function ReadAndDoCommands(line: string): boolean; stdcall;
     function TerminateMe(): boolean; stdcall;
+    function LogAdd(message: string): TStringList; stdcall;
+    function ShowLog(): TStringList; stdcall;
     function init(): boolean; stdcall;
   end;
 
@@ -28,6 +30,7 @@ interface
     CommandSplit1:         TStringList;  // for spliting of commands (main - what is command, and what are parameters)
     CommandSplit2:         TStringList;  // for spliting of commands (minor - if multiple parameters, split them too)
     Handle:                       HWND;  // some handle variable for shellapi
+    _log:                  TStringList;  // holds information about scripts progress
 
 implementation
 
@@ -103,6 +106,7 @@ begin
   CommandSplit1.Free;   //release memory from using main split
   CommandSplit2.Free;   //release memory from using minor split
   ZipHandler.Free;      //release memory from using zip handler
+  _log.Free;             //release memory from logs
 end;
 
 function functions.DownloadFile(const url: string; const destinationFileName: string): boolean;
@@ -242,7 +246,7 @@ begin
   result:=true;
   if(empty(comm)) then // if command is missing, don't do anything
   begin
-    writeln('Command whitespace');
+    LogAdd('Command whitespace');
     result:=false;
   end
   else if((comm='CloseMe') or (comm='TerminateMe')) then
@@ -252,47 +256,51 @@ begin
   end
   else if(empty(par)) then // if parameter is missing, don't do anything
   begin
-    writeln('Parameter whitespace');
+    LogAdd('Parameter whitespace');
     result:=false;
   end
   else if(comm='ScriptName') then
-    writeln('Script name: ',par)
+    LogAdd('Script name: '+par)
   else if(comm='Author') then //Write script's author
-    writeln('Script´s Author: ',par)
+    LogAdd('Script´s Author: '+par)
   else if(comm='Log') then //Write a message
-    writeln(StringReplace(par,'_',' ', [rfReplaceAll, rfIgnoreCase]))
+    LogAdd(StringReplace(par,'_',' ', [rfReplaceAll, rfIgnoreCase]))
+  {$IFDEF CONSOLE}
   else if(comm='LogEnter') then //Write a message, user need to hit enter to continue with program
   begin
     write(StringReplace(par,'_',' ', [rfReplaceAll, rfIgnoreCase]));
     readln;
   end
+  {$ENDIF}
   else if(comm='PromptYesNo') then //Ask user to do some command, if 'y' is prompt that command will be used
   begin
     write(StringReplace(CommandParams(line,0),'_',' ', [rfReplaceAll, rfIgnoreCase])+' [y/n]: ');
     read(yn);
+    {$IFDEF CONSOLE}
     readln;
+    {$ENDIF}
     if(yn='y') then
     begin
       if not(empty(CommandParams(line,1,1))) then //support for Execute
       begin
-        writeln('You prompt: '+CommandParams(line,1)+'='+CommandParams(line,0,1)+','+CommandParams(line,1,1));
+        LogAdd('You prompt: '+CommandParams(line,1)+'='+CommandParams(line,0,1)+','+CommandParams(line,1,1));
         ReadAndDoCommands(CommandParams(line,1)+'='+CommandParams(line,0,1)+','+CommandParams(line,1,1));
       end
       else
       begin
-        writeln('You prompt: '+CommandParams(line,1)+'='+CommandParams(line,0,1));
+        LogAdd('You prompt: '+CommandParams(line,1)+'='+CommandParams(line,0,1));
         ReadAndDoCommands(CommandParams(line,1)+'='+CommandParams(line,0,1));
       end;
     end
     else
-      writeln('Prompt: Do Nothing');
+      LogAdd('Prompt: Do Nothing');
   end
   else if(comm='MkDir') then //Create Directory
   begin
     if not(DirectoryExists(GetLocalDir+par)) then
     begin
       mkdir(GetLocalDir+par);
-      writeln('Directory "',GetLocalDir+par,'" created.');
+      LogAdd('Directory "'+GetLocalDir+par+'" created.');
     end;
   end
   else if(comm='RmDir') then //Remove Directory
@@ -300,7 +308,7 @@ begin
     if(DirectoryExists(GetLocalDir+par)) then
     begin
       rmdir(GetLocalDir+par);
-      writeln('Directory "',GetLocalDir+par,'" removed.');
+      LogAdd('Directory "'+GetLocalDir+par+'" removed.');
     end;
   end
   else if(comm='RmFile') then //Remove File
@@ -308,7 +316,7 @@ begin
     if(FileExists(GetLocalDir+par)) then
     begin
       deletefile(PWChar(GetLocalDir+par));
-      writeln('File "',GetLocalDir+par,'" removed.');
+      LogAdd('File "'+GetLocalDir+par+'" removed.');
     end;
   end
   else if(comm='CopyFile') then //Copy File
@@ -320,30 +328,32 @@ begin
         if(CommandParams(line,2)='overwrite') then
         begin
           CopyFile(PWChar(GetLocalDir+CommandParams(line,0)),PWChar(GetLocalDir+CommandParams(line,1)),false);
-          writeln('File "',GetLocalDir+CommandParams(line,0),'" copied to "',GetLocalDir+CommandParams(line,1),'". autooverwrite');
+          LogAdd('File "'+GetLocalDir+CommandParams(line,0)+'" copied to "'+GetLocalDir+CommandParams(line,1)+'". autooverwrite');
         end
         else
         begin
-          write('File "',GetLocalDir+CommandParams(line,1),'" already exists, overwrite? [y/n]: ');
+          write('File "'+GetLocalDir+CommandParams(line,1)+'" already exists, overwrite? [y/n]: ');
           read(yn);
+          {$IFDEF CONSOLE}
           readln;
+          {$ENDIF}
           if(yn='y') then // if user type "y" it means "yes"
           begin
             CopyFile(PWChar(GetLocalDir+CommandParams(line,0)),PWChar(GetLocalDir+CommandParams(line,1)),false);
-            writeln('File "',GetLocalDir+CommandParams(line,0),'" copied to "',GetLocalDir+CommandParams(line,1),'".');
+            LogAdd('File "'+GetLocalDir+CommandParams(line,0)+'" copied to "'+GetLocalDir+CommandParams(line,1)+'".');
           end
           else
-            writeln('OK');
+            LogAdd('OK');
         end;
       end
       else
       begin
         CopyFile(PWChar(GetLocalDir+CommandParams(line,0)),PWChar(GetLocalDir+CommandParams(line,1)),false);
-        writeln('File "',GetLocalDir+CommandParams(line,0),'" copied to "',GetLocalDir+CommandParams(line,1),'".');
+        LogAdd('File "'+GetLocalDir+CommandParams(line,0)+'" copied to "'+GetLocalDir+CommandParams(line,1)+'".');
       end;
     end
     else
-      writeln('File "',GetLocalDir+CommandParams(line,0),'" copied to "',GetLocalDir+CommandParams(line,1),'" failed! File "',CommandParams(line,0),'" doesn´t exists!');
+      LogAdd('File "'+GetLocalDir+CommandParams(line,0)+'" copied to "'+GetLocalDir+CommandParams(line,1)+'" failed! File "'+CommandParams(line,0)+'" doesn´t exists!');
   end
   else if(comm='Execute') then
   begin
@@ -352,12 +362,12 @@ begin
       if(GetWinVersion=wvWinVista) then
       begin
         ShellExecute(Handle,'runas',PWChar(GetLocalDir+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),1);
-        writeln('File "',CommandParams(line,0),'" executed as admin with "',StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase]),'" parameters.');
+        LogAdd('File "'+CommandParams(line,0)+'" executed as admin with "'+StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])+'" parameters.');
       end
       else
       begin
         ShellExecute(Handle,'open',PWChar(GetLocalDir+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),1);
-        writeln('File "',CommandParams(line,0),'" executed with "',StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase]),'" parameters.');
+        LogAdd('File "'+CommandParams(line,0)+'" executed with "'+StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])+'" parameters.');
       end;
     end;
   end
@@ -367,53 +377,80 @@ begin
     begin
       if(CommandParams(line,2)='overwrite') then
       begin
-        writeln('Downloading "',CommandParams(line,0),'" to "'+GetLocalDir+CommandParams(line,1),'" ... autooverwrite');
+        LogAdd('Downloading "'+CommandParams(line,0)+'" to "'+GetLocalDir+CommandParams(line,1)+'" ... autooverwrite');
         CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
       end
       else
       begin
         write('File "',GetLocalDir+CommandParams(line,1),'" already exists, overwrite? [y/n]: ');
         read(yn);
+        {$IFDEF CONSOLE}
         readln;
+        {$ENDIF}
         if(yn='y') then // if user type "y" it means "yes"
         begin
-          writeln('Downloading "',CommandParams(line,0),'" to '+GetLocalDir+CommandParams(line,1),'" ...');
+          LogAdd('Downloading "'+CommandParams(line,0)+'" to '+GetLocalDir+CommandParams(line,1)+'" ...');
           CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
         end;
       end;
     end
     else  //file does not exists
     begin
-      writeln('Downloading "',CommandParams(line,0),'" to "'+GetLocalDir+CommandParams(line,1),'" ...');
+      LogAdd('Downloading "'+CommandParams(line,0)+'" to "'+GetLocalDir+CommandParams(line,1)+'" ...');
       CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
     end;
-    writeln('OK');
+    LogAdd('OK');
   end
   else if(comm='ZipExtract') then
   begin
     if(ZipHandler.IsValid(par)) then
     begin
       ZipHandler.ExtractZipFile(par,GetLocalPath+'geoos\');
-      writeln('File "',par,'" extracted.');
+      LogAdd('File "'+par+'" extracted.');
     end
     else
-      writeln('File "',par,'" is not valid zip file!');
+      LogAdd('File "'+par+'" is not valid zip file!');
   end
   else if(comm='ZipExtractTo') then
   begin
     if(ZipHandler.IsValid(CommandParams(line,0))) then
     begin
       ZipHandler.ExtractZipFile(CommandParams(line,0),GetLocalPath+CommandParams(line,1));
-      writeln('File "',CommandParams(line,0),'" extracted to "',CommandParams(line,1),'".');
+      LogAdd('File "'+CommandParams(line,0)+'" extracted to "'+CommandParams(line,1)+'".');
     end
     else
-      writeln('File "',CommandParams(line,0),'" is not valid zip file!');
+      LogAdd('File "'+CommandParams(line,0)+'" is not valid zip file!');
   end
   else
   begin
-    writeln('Command "',comm,'" not found!');
+    LogAdd('Command "'+comm+'" not found!');
     result:=false;
   end;
+end;
+
+function functions.LogAdd(message: string): TStringList;
+begin
+  _log.Add(message);
+  {$IFDEF CONSOLE}
+  writeln(message);
+  {$ELSE}
+  result:=ShowLog();
+  {$ENDIF}
+end;
+
+function functions.ShowLog(): TStringList;
+{$IFDEF CONSOLE}
+var i: integer;
+{$ENDIF}
+begin
+{$IFDEF CONSOLE}
+for i:=0 to _log.Count-1 do
+begin
+  writeln(_log.Strings[i]);
+end;
+{$ELSE}
+result:=_log;
+{$ENDIF}
 end;
 
 function functions.init(): boolean;
@@ -421,6 +458,7 @@ begin
   CommandSplit1:=TStringList.Create();
   CommandSplit2:=TStringList.Create();
   ZipHandler:=TZipFile.Create();
+  _log:=TStringList.Create();
 end;
 
 end.
