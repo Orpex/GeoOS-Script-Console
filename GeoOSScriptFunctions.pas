@@ -1,6 +1,6 @@
 unit GeoOSScriptFunctions;
 {
-  Version 0.21
+  Version 0.22
   Copyright 2012 Geodar
   https://github.com/Geodar/GeoOS_Script_Functions
 }
@@ -24,7 +24,7 @@ interface
     function CheckDirAndDownloadFile(url: string; path: string): boolean; stdcall;
     function ReadAndDoCommands(line: string): boolean; stdcall;
     function TerminateMe(): boolean; stdcall;
-    function LogAdd(message: string): TStringList; stdcall;
+    function LogAdd(messages: string): TStringList; stdcall;
     function ShowLog(): TStringList; stdcall;
     function init(): boolean; stdcall;
   end;
@@ -37,6 +37,11 @@ interface
     _log:                  TStringList;  // holds information about scripts progress
 
 implementation
+
+{$IFDEF CONSOLE}
+{$ELSE}
+uses Unit1;
+{$ENDIF}
 
 procedure Split(Delimiter: Char; Str: string; ListOfStrings: TStrings); // Split what we need
 //thanks to RRUZ - http://stackoverflow.com/questions/2625707/delphi-how-do-i-split-a-string-into-an-array-of-strings-based-on-a-delimiter
@@ -243,7 +248,7 @@ end;
 function functions.ReadAndDoCommands(line: string): boolean; //the most important function!
 var
   comm,par: string;
-  yn: char;
+  yn: string;
 begin
   comm:=ReadCommand(line);
   par:=CommandParams(line);
@@ -283,7 +288,7 @@ begin
     read(yn);
     readln;
     {$ELSE}
-    InputQuery('GeoOS Script',StringReplace(CommandParams(line,0),'_',' ', [rfReplaceAll, rfIgnoreCase])+' [y/n]: ',yn);
+    yn:=InputBox('GeoOS Script',StringReplace(CommandParams(line,0),'_',' ', [rfReplaceAll, rfIgnoreCase])+' [y/n]: ','n');
     {$ENDIF}
     if(yn='y') then
     begin
@@ -343,7 +348,7 @@ begin
           read(yn);
           readln;
           {$ELSE}
-          InputQuery('GeoOS Script','File "'+GetLocalDir+CommandParams(line,1)+'" already exists, overwrite? [y/n]: ',yn);
+          yn:=InputBox('GeoOS Script','File "'+CommandParams(line,1)+'" already exists, overwrite? [y/n]: ','n');
           {$ENDIF}
           if(yn='y') then // if user type "y" it means "yes"
           begin
@@ -395,7 +400,7 @@ begin
         read(yn);
         readln;
         {$ELSE}
-        InputQuery('GeoOS Script','File "'+GetLocalDir+CommandParams(line,1)+'" already exists, overwrite? [y/n]: ',yn);
+        yn:=InputBox('GeoOS Script','File "'+CommandParams(line,1)+'" already exists, overwrite? [y/n]: ','n');
         {$ENDIF}
         if(yn='y') then // if user type "y" it means "yes"
         begin
@@ -438,9 +443,9 @@ begin
   end;
 end;
 
-function functions.LogAdd(message: string): TStringList;
+function functions.LogAdd(messages: string): TStringList;
 begin
-  _log.Add(message);
+  _log.Add(messages);
   result:=ShowLog();
 end;
 
@@ -449,6 +454,7 @@ begin
 {$IFDEF CONSOLE}
 writeln(_log.Strings[_log.Count-1]);
 {$ELSE}
+Form1.HandleGeoOSScriptMsg(_log.Strings[_log.Count-1]);
 result:=_log;
 {$ENDIF}
 end;
@@ -459,6 +465,7 @@ begin
   CommandSplit2:=TStringList.Create();
   ZipHandler:=TZipFile.Create();
   _log:=TStringList.Create();
+  _log.Add('GeoOS Script Log Init.');
 end;
 
 end.
