@@ -38,8 +38,7 @@ interface
 
 implementation
 
-{$IFDEF CONSOLE}
-{$ELSE}
+{$IFNDEF CONSOLE}
 uses Unit1;
 {$ENDIF}
 
@@ -115,7 +114,7 @@ begin
   CommandSplit1.Free;   //release memory from using main split
   CommandSplit2.Free;   //release memory from using minor split
   ZipHandler.Free;      //release memory from using zip handler
-  _log.Free;             //release memory from logs
+  _log.Free;            //release memory from logs
 end;
 
 function functions.DownloadFile(const url: string; const destinationFileName: string): boolean;
@@ -127,7 +126,7 @@ var
   bytesRead: DWORD;
 begin
   result:=False;
-  hInet:=InternetOpen(PChar('GeoOSScriptConsole'),INTERNET_OPEN_TYPE_DIRECT,nil,nil,0);
+  hInet:=InternetOpen(PChar('GeoOSScript'),INTERNET_OPEN_TYPE_DIRECT,nil,nil,0);
   hFile:=InternetOpenURL(hInet,PChar(url),nil,0,INTERNET_FLAG_NO_CACHE_WRITE,0);
   if(FileExists(destinationFileName)) then
   begin
