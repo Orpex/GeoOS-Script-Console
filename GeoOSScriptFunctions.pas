@@ -1,8 +1,12 @@
 unit GeoOSScriptFunctions;
-
+{
+  Version 0.21
+  Copyright 2012 Geodar
+  https://github.com/Geodar/GeoOS_Script_Functions
+}
 interface
   uses
-    Windows, WinINet, SysUtils, Classes, shellapi, Zip, StrUtils;
+    Windows, WinINet, SysUtils, Classes, shellapi, Zip, StrUtils, Dialogs;
 
   type TWinVersion = (wvUnknown, wvWin95, wvWin98, wvWin98SE, wvWinNT, wvWinME, wvWin2000, wvWinXP, wvWinVista);
 
@@ -274,10 +278,12 @@ begin
   {$ENDIF}
   else if(comm='PromptYesNo') then //Ask user to do some command, if 'y' is prompt that command will be used
   begin
+    {$IFDEF CONSOLE}
     write(StringReplace(CommandParams(line,0),'_',' ', [rfReplaceAll, rfIgnoreCase])+' [y/n]: ');
     read(yn);
-    {$IFDEF CONSOLE}
     readln;
+    {$ELSE}
+    InputQuery('GeoOS Script',StringReplace(CommandParams(line,0),'_',' ', [rfReplaceAll, rfIgnoreCase])+' [y/n]: ',yn);
     {$ENDIF}
     if(yn='y') then
     begin
@@ -332,10 +338,12 @@ begin
         end
         else
         begin
+          {$IFDEF CONSOLE}
           write('File "'+GetLocalDir+CommandParams(line,1)+'" already exists, overwrite? [y/n]: ');
           read(yn);
-          {$IFDEF CONSOLE}
           readln;
+          {$ELSE}
+          InputQuery('GeoOS Script','File "'+GetLocalDir+CommandParams(line,1)+'" already exists, overwrite? [y/n]: ',yn);
           {$ENDIF}
           if(yn='y') then // if user type "y" it means "yes"
           begin
@@ -382,10 +390,12 @@ begin
       end
       else
       begin
+        {$IFDEF CONSOLE}
         write('File "',GetLocalDir+CommandParams(line,1),'" already exists, overwrite? [y/n]: ');
         read(yn);
-        {$IFDEF CONSOLE}
         readln;
+        {$ELSE}
+        InputQuery('GeoOS Script','File "'+GetLocalDir+CommandParams(line,1)+'" already exists, overwrite? [y/n]: ',yn);
         {$ENDIF}
         if(yn='y') then // if user type "y" it means "yes"
         begin
@@ -431,23 +441,13 @@ end;
 function functions.LogAdd(message: string): TStringList;
 begin
   _log.Add(message);
-  {$IFDEF CONSOLE}
-  writeln(message);
-  {$ELSE}
   result:=ShowLog();
-  {$ENDIF}
 end;
 
 function functions.ShowLog(): TStringList;
-{$IFDEF CONSOLE}
-var i: integer;
-{$ENDIF}
 begin
 {$IFDEF CONSOLE}
-for i:=0 to _log.Count-1 do
-begin
-  writeln(_log.Strings[i]);
-end;
+writeln(_log.Strings[_log.Count-1]);
 {$ELSE}
 result:=_log;
 {$ENDIF}
