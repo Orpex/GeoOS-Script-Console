@@ -8,7 +8,7 @@ interface
   uses
     Windows, SysUtils, Classes, shellapi, Zip, StrUtils
     {$IFDEF CONSOLE}, WinINet
-    {$ELSE}, Dialogs, IdHTTP, IdAntiFreeze, IdComponent{$ENDIF};
+    {$ELSE}, Dialogs, IdHTTP, IdAntiFreeze, IdComponent, Forms{$ENDIF};
 
   type TWinVersion = (wvUnknown, wvWin95, wvWin98, wvWin98SE, wvWinNT, wvWinME, wvWin2000, wvWinXP, wvWinVista);
 
@@ -32,6 +32,7 @@ interface
     function empty(str: string): boolean; stdcall;
     function GetLocalDir(): string; stdcall;
     function GetLocalPath(): string; stdcall;
+    function CheckVersionInOnlineStore(programname: string; currversion: real): real; stdcall;
     procedure Split(Delimiter: Char; Str: string; ListOfStrings: TStrings);
   end;
 
@@ -56,9 +57,9 @@ uses Unit1;
 procedure functions.Split(Delimiter: Char; Str: string; ListOfStrings: TStrings); // Split what we need
 //thanks to RRUZ - http://stackoverflow.com/questions/2625707/delphi-how-do-i-split-a-string-into-an-array-of-strings-based-on-a-delimiter
 begin
-   ListOfStrings.Clear;
-   ListOfStrings.Delimiter     := Delimiter;
-   ListOfStrings.DelimitedText := Str;
+  ListOfStrings.Clear;
+  ListOfStrings.Delimiter     := Delimiter;
+  ListOfStrings.DelimitedText := Str;
 end;
 
 function functions.empty(str: string): boolean;
@@ -162,6 +163,7 @@ begin
   InternetCloseHandle(hInet);
 end;
 {$ELSE}
+
 function GetDLFreeSlot(): smallint;
 var i: smallint;
 begin
@@ -181,9 +183,9 @@ var
 begin
   result := FALSE;
   availabledl:=GetDLFreeSlot();
-  if(availabledl=0) then
+  if not(availabledl=0) then
   begin
-    fIDHTTP[availabledl]:=TIDHTTP.Create;
+    fIDHTTP[availabledl]:=TIDHTTP.Create();
     fIDHTTP[availabledl].HandleRedirects:=TRUE;
     fIDHTTP[availabledl].AllowCookies:=FALSE;
     fIDHTTP[availabledl].Request.UserAgent:='GeoOSScript Mozilla/4.0';
@@ -265,6 +267,27 @@ begin
     result:='';
 end;
 
+function functions.CheckVersionInOnlineStore(programname: string; currversion: real): real;
+var
+  fFile: Text;
+  line: string;
+begin
+  result:=0;
+  DownloadFile('http://geodar.hys.cz/geoos/'+programname+'.gos',GetLocalDir()+programname+'.gos');
+  if(FileExists(GetLocalDir()+programname+'.gos')) then
+  begin
+    Assign(fFile,GetLocalDir()+programname+'.gos');
+    reset(fFile);
+    repeat
+      readln(fFile,line);
+      if(ReadCommand(line)='Version') then
+        if(StrToFloat(CommandParams(line))>=currversion) then
+          result:=StrToFloat(line);
+    until EOF(fFile) or not(result=0);
+    Close(fFile);
+  end;
+end;
+
 function functions.CheckDirAndDownloadFile(url: string; path: string): boolean;
 var
   splitdir:  TStringList;
@@ -301,13 +324,17 @@ begin
   end;
   splitdir.Free;
   splitdir2.Free;
-  result:=DownloadFile(url,GetLocalPath+path);
+  result:=DownloadFile(url,GetLocalPath()+path);
 end;
 
 function functions.TerminateMe(): boolean;
 begin
   FreeAll();
-  Halt(0); //terminate program
+  {$IFDEF CONSOLE}
+  Halt(0); //terminate console
+  {$ELSE}
+  Application.Terminate; //terminate form program
+  {$ENDIF}
 end;
 
 function functions.ReadAndDoCommands(line: string): boolean; //the most important function!
@@ -318,6 +345,9 @@ begin
   comm:=ReadCommand(line);
   par:=CommandParams(line);
   result:=true;
+  {$IFNDEF CONSOLE}
+  Handle:=Application.Handle;
+  {$ENDIF}
   if(empty(comm)) then // if command is missing, don't do anything
   begin
     LogAdd('Command whitespace');
@@ -346,6 +376,8 @@ begin
     readln;
   end
   {$ENDIF}
+  else if(comm='Version') then //Write a message
+    LogAdd('Script Version: '+par)
   else if(comm='PromptYesNo') then //Ask user to do some command, if 'y' is prompt that command will be used
   begin
     {$IFDEF CONSOLE}
@@ -449,7 +481,9 @@ begin
         ShellExecute(Handle,'open',PWChar(GetLocalDir+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),1);
         LogAdd('File "'+CommandParams(line,0)+'" executed with "'+StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])+'" parameters.');
       end;
-    end;
+    end
+    else
+      LogAdd('File "'+CommandParams(line,0)+'" doesn´t exists!');
   end
   else if(comm='DownloadFile') then
   begin
@@ -457,8 +491,8 @@ begin
     begin
       if(CommandParams(line,2)='overwrite') then
       begin
-        LogAdd('Downloading "'+CommandParams(line,0)+'" to "'+GetLocalDir+CommandParams(line,1)+'" ... autooverwrite');
-        CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
+        LogAdd('Downloading "'+CommandParams(line,0)+'" to "'+GetLocalDir()+CommandParams(line,1)+'" ... autooverwrite');
+        result:=CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
       end
       else
       begin
@@ -472,15 +506,15 @@ begin
         SetLength(yn,1);
         if(yn='y') then // if user type "y" it means "yes"
         begin
-          LogAdd('Downloading "'+CommandParams(line,0)+'" to '+GetLocalDir+CommandParams(line,1)+'" ...');
-          CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
+          LogAdd('Downloading "'+CommandParams(line,0)+'" to '+GetLocalDir()+CommandParams(line,1)+'" ...');
+          result:=CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
         end;
       end;
     end
     else  //file does not exists
     begin
-      LogAdd('Downloading "'+CommandParams(line,0)+'" to "'+GetLocalDir+CommandParams(line,1)+'" ...');
-      CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
+      LogAdd('Downloading "'+CommandParams(line,0)+'" to "'+GetLocalDir()+CommandParams(line,1)+'" ...');
+      result:=CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
     end;
     LogAdd('OK');
   end
@@ -488,7 +522,7 @@ begin
   begin
     if(ZipHandler.IsValid(par)) then
     begin
-      ZipHandler.ExtractZipFile(par,GetLocalPath+'geoos\');
+      ZipHandler.ExtractZipFile(par,GetLocalPath()+'geoos\');
       LogAdd('File "'+par+'" extracted.');
     end
     else
@@ -519,12 +553,12 @@ end;
 
 function functions.ShowLog(): TStringList;
 begin
-{$IFDEF CONSOLE}
-writeln(_log.Strings[_log.Count-1]);
-{$ELSE}
-Form1.HandleGeoOSScriptMsg(_log.Strings[_log.Count-1]);
-result:=_log;
-{$ENDIF}
+  {$IFDEF CONSOLE}
+  writeln(_log.Strings[_log.Count-1]);
+  {$ELSE}
+  Form1.HandleGeoOSScriptMsg(_log.Strings[_log.Count-1]);
+  result:=_log;
+  {$ENDIF}
 end;
 
 function functions.init(): boolean;
