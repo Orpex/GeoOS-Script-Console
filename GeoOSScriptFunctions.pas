@@ -1,12 +1,14 @@
 unit GeoOSScriptFunctions;
 {
-  Version 0.22
+  Version 0.23
   Copyright 2012 Geodar
   https://github.com/Geodar/GeoOS_Script_Functions
 }
 interface
   uses
-    Windows, WinINet, SysUtils, Classes, shellapi, Zip, StrUtils, Dialogs;
+    Windows, SysUtils, Classes, shellapi, Zip, StrUtils
+    {$IFDEF CONSOLE}, WinINet
+    {$ELSE}, Dialogs, IdHTTP, IdAntiFreeze, IdComponent{$ENDIF};
 
   type TWinVersion = (wvUnknown, wvWin95, wvWin98, wvWin98SE, wvWinNT, wvWinME, wvWin2000, wvWinXP, wvWinVista);
 
@@ -27,14 +29,23 @@ interface
     function LogAdd(messages: string): TStringList; stdcall;
     function ShowLog(): TStringList; stdcall;
     function init(): boolean; stdcall;
+    function empty(str: string): boolean; stdcall;
+    function GetLocalDir(): string; stdcall;
+    function GetLocalPath(): string; stdcall;
+    procedure Split(Delimiter: Char; Str: string; ListOfStrings: TStrings);
   end;
 
   var
-    ZipHandler:               TZipFile;  // for accessing zip files
-    CommandSplit1:         TStringList;  // for spliting of commands (main - what is command, and what are parameters)
-    CommandSplit2:         TStringList;  // for spliting of commands (minor - if multiple parameters, split them too)
-    Handle:                       HWND;  // some handle variable for shellapi
-    _log:                  TStringList;  // holds information about scripts progress
+    ZipHandler:                      TZipFile;  // for accessing zip files
+    CommandSplit1:                TStringList;  // for spliting of commands (main - what is command, and what are parameters)
+    CommandSplit2:                TStringList;  // for spliting of commands (minor - if multiple parameters, split them too)
+    Handle:                              HWND;  // some handle variable for shellapi
+    _log:                         TStringList;  // holds information about scripts progress
+    {$IFNDEF CONSOLE}
+    fIDHTTP:          array [1..5] of TIDHTTP;  // max support for 5 downloads at time
+    Stream:     array [1..5] of TMemoryStream;  // downloading streams
+    idAntiFreeze:               TIdAntiFreeze;  // stop freezing application while downloading a file
+    {$ENDIF}
 
 implementation
 
@@ -42,7 +53,7 @@ implementation
 uses Unit1;
 {$ENDIF}
 
-procedure Split(Delimiter: Char; Str: string; ListOfStrings: TStrings); // Split what we need
+procedure functions.Split(Delimiter: Char; Str: string; ListOfStrings: TStrings); // Split what we need
 //thanks to RRUZ - http://stackoverflow.com/questions/2625707/delphi-how-do-i-split-a-string-into-an-array-of-strings-based-on-a-delimiter
 begin
    ListOfStrings.Clear;
@@ -50,18 +61,18 @@ begin
    ListOfStrings.DelimitedText := Str;
 end;
 
-function empty(str: string): boolean;
+function functions.empty(str: string): boolean;
 begin
   if(Length(str)=0) then result:=true
   else result:=false;
 end;
 
-function GetLocalDir(): string;   //same function as GetLocalPath()
+function functions.GetLocalDir(): string;   //same function as GetLocalPath()
 begin
   result:=ExtractFilePath(ParamStr(0));
 end;
 
-function GetLocalPath(): string; //same function as GetLocalDir()
+function functions.GetLocalPath(): string; //same function as GetLocalDir()
 begin
   result:=ExtractFilePath(ParamStr(0));
 end;
@@ -115,8 +126,12 @@ begin
   CommandSplit2.Free;   //release memory from using minor split
   ZipHandler.Free;      //release memory from using zip handler
   _log.Free;            //release memory from logs
+  {$IFNDEF CONSOLE}
+  idAntiFreeze.Free;
+  {$ENDIF}
 end;
 
+{$IFDEF CONSOLE}
 function functions.DownloadFile(const url: string; const destinationFileName: string): boolean;
 var
   hInet: HINTERNET;
@@ -126,8 +141,8 @@ var
   bytesRead: DWORD;
 begin
   result:=False;
-  hInet:=InternetOpen(PChar('GeoOSScript'),INTERNET_OPEN_TYPE_DIRECT,nil,nil,0);
-  hFile:=InternetOpenURL(hInet,PChar(url),nil,0,INTERNET_FLAG_NO_CACHE_WRITE,0);
+  hInet:=InternetOpen(PChar('GeoOSScript Mozilla/4.0'),INTERNET_OPEN_TYPE_DIRECT,nil,nil,0);
+  hFile:=InternetOpenURL(hInet,PChar(url),nil,0,INTERNET_FLAG_NO_CACHE_WRITE+INTERNET_FLAG_ASYNC+INTERNET_FLAG_RELOAD,0);
   if(FileExists(destinationFileName)) then
   begin
     DeleteFile(PWChar(destinationFileName));
@@ -146,6 +161,57 @@ begin
   end;
   InternetCloseHandle(hInet);
 end;
+{$ELSE}
+function GetDLFreeSlot(): smallint;
+var i: smallint;
+begin
+  result:=0;
+  for i:=5 downto 1 do
+  begin
+    if not(Assigned(fIDHTTP[i])) then
+    begin
+      result:=i;
+    end;
+  end;
+end;
+
+function functions.DownloadFile(const url: string; const destinationFileName: string): boolean;
+var
+  availabledl: smallint;
+begin
+  result := FALSE;
+  availabledl:=GetDLFreeSlot();
+  if(availabledl=0) then
+  begin
+    fIDHTTP[availabledl]:=TIDHTTP.Create;
+    fIDHTTP[availabledl].HandleRedirects:=TRUE;
+    fIDHTTP[availabledl].AllowCookies:=FALSE;
+    fIDHTTP[availabledl].Request.UserAgent:='GeoOSScript Mozilla/4.0';
+    fIDHTTP[availabledl].Request.Connection:='Keep-Alive';
+    fIDHTTP[availabledl].Request.ProxyConnection:='Keep-Alive';
+    fIDHTTP[availabledl].Request.CacheControl:='no-cache';
+
+    Stream[availabledl] := TMemoryStream.Create;
+    try
+      try
+        fIDHTTP[availabledl].Get(url, Stream[availabledl]);
+        if FileExists(destinationFileName) then
+          DeleteFile(PWideChar(destinationFileName));
+        Stream[availabledl].SaveToFile(destinationFileName);
+        result := TRUE;
+      except
+        On E: Exception do
+          begin
+            result := FALSE;
+          end;
+      end;
+    finally
+      FreeAndNil(Stream[availabledl]);
+      FreeAndNil(fIDHTTP[availabledl]);
+    end;
+  end;
+end;
+{$ENDIF}
 
 function functions.GetParams(): string; //gets all parameters
 var
@@ -289,6 +355,7 @@ begin
     {$ELSE}
     yn:=InputBox('GeoOS Script',StringReplace(CommandParams(line,0),'_',' ', [rfReplaceAll, rfIgnoreCase])+' [y/n]: ','n');
     {$ENDIF}
+    SetLength(yn,1);
     if(yn='y') then
     begin
       if not(empty(CommandParams(line,1,1))) then //support for Execute
@@ -349,6 +416,7 @@ begin
           {$ELSE}
           yn:=InputBox('GeoOS Script','File "'+CommandParams(line,1)+'" already exists, overwrite? [y/n]: ','n');
           {$ENDIF}
+          SetLength(yn,1);
           if(yn='y') then // if user type "y" it means "yes"
           begin
             CopyFile(PWChar(GetLocalDir+CommandParams(line,0)),PWChar(GetLocalDir+CommandParams(line,1)),false);
@@ -401,6 +469,7 @@ begin
         {$ELSE}
         yn:=InputBox('GeoOS Script','File "'+CommandParams(line,1)+'" already exists, overwrite? [y/n]: ','n');
         {$ENDIF}
+        SetLength(yn,1);
         if(yn='y') then // if user type "y" it means "yes"
         begin
           LogAdd('Downloading "'+CommandParams(line,0)+'" to '+GetLocalDir+CommandParams(line,1)+'" ...');
@@ -463,6 +532,9 @@ begin
   CommandSplit1:=TStringList.Create();
   CommandSplit2:=TStringList.Create();
   ZipHandler:=TZipFile.Create();
+  {$IFNDEF CONSOLE}
+  idAntiFreeze:=TIdAntiFreeze.Create();
+  {$ENDIF}
   _log:=TStringList.Create();
   _log.Add('GeoOS Script Log Init.');
 end;
