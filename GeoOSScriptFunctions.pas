@@ -1,6 +1,6 @@
 unit GeoOSScriptFunctions;
 {
-  Version 0.23
+  Version 0.24
   Copyright 2012 Geodar
   https://github.com/Geodar/GeoOS_Script_Functions
 }
@@ -130,6 +130,7 @@ begin
   {$IFNDEF CONSOLE}
   idAntiFreeze.Free;
   {$ENDIF}
+  result:=true;
 end;
 
 {$IFDEF CONSOLE}
@@ -195,17 +196,14 @@ begin
 
     Stream[availabledl] := TMemoryStream.Create;
     try
-      try
+      fIDHTTP[availabledl].Head(url);
+      if(fIDHTTP[availabledl].Response.ResponseCode=200) then
+      begin
         fIDHTTP[availabledl].Get(url, Stream[availabledl]);
         if FileExists(destinationFileName) then
           DeleteFile(PWideChar(destinationFileName));
         Stream[availabledl].SaveToFile(destinationFileName);
         result := TRUE;
-      except
-        On E: Exception do
-          begin
-            result := FALSE;
-          end;
       end;
     finally
       FreeAndNil(Stream[availabledl]);
@@ -238,13 +236,19 @@ end;
 function functions.ReadCommand(str: string): string;
 begin
   Split('=',str,CommandSplit1);
-  result:=CommandSplit1[0];
+  if not(CommandSplit1.Count=0) then
+    result:=CommandSplit1.Strings[0]
+  else
+    result:='';
 end;
 
 function functions.CommandParams(str: string): string;
 begin
   Split('=',str,CommandSplit1);
-  result:=CommandSplit1[1];
+  if not(CommandSplit1.Count=1) then
+    result:=CommandSplit1.Strings[1]
+  else
+    result:='';
 end;
 
 function functions.CommandParams(str: string; index: integer): string;
@@ -252,7 +256,7 @@ begin
   Split('=',str,CommandSplit1);
   Split(',',CommandSplit1[1],CommandSplit2);
   if((CommandSplit2.Count-1)>=index) then
-    result:=CommandSplit2[index]
+    result:=CommandSplit2.Strings[index]
   else
     result:='';
 end;
@@ -262,7 +266,7 @@ begin
   Split('=',str,CommandSplit1);
   Split(',',CommandSplit1[commandindex+1],CommandSplit2);
   if((CommandSplit2.Count-1)>=index) then
-    result:=CommandSplit2[index]
+    result:=CommandSplit2.Strings[index]
   else
     result:='';
 end;
@@ -272,7 +276,7 @@ var
   fFile: Text;
   line: string;
 begin
-  result:=0;
+  result:=0.0;
   DownloadFile('http://geodar.hys.cz/geoos/'+programname+'.gos',GetLocalDir()+programname+'.gos');
   if(FileExists(GetLocalDir()+programname+'.gos')) then
   begin
@@ -281,8 +285,8 @@ begin
     repeat
       readln(fFile,line);
       if(ReadCommand(line)='Version') then
-        if(StrToFloat(CommandParams(line))>=currversion) then
-          result:=StrToFloat(line);
+        if(StrToFloat(CommandParams(line))>currversion) then
+          result:=StrToFloat(CommandParams(line));
     until EOF(fFile) or not(result=0);
     Close(fFile);
   end;
@@ -292,13 +296,12 @@ function functions.CheckDirAndDownloadFile(url: string; path: string): boolean;
 var
   splitdir:  TStringList;
   splitdir2: TStringList;
-  option:       smallint;
   i:             integer;
   str:            string;
   hope:          boolean;
 begin
-  splitdir:=TStringList.Create;
-  splitdir2:=TStringList.Create;
+  splitdir:=TStringList.Create();
+  splitdir2:=TStringList.Create();
   str:=ExtractFileDir(ParamStr(0));
   hope:=false;
   Split('\',path,splitdir);
@@ -335,6 +338,7 @@ begin
   {$ELSE}
   Application.Terminate; //terminate form program
   {$ENDIF}
+  result:=true;
 end;
 
 function functions.ReadAndDoCommands(line: string): boolean; //the most important function!
@@ -406,43 +410,43 @@ begin
   end
   else if(comm='MkDir') then //Create Directory
   begin
-    if not(DirectoryExists(GetLocalDir+par)) then
+    if not(DirectoryExists(GetLocalDir()+par)) then
     begin
-      mkdir(GetLocalDir+par);
-      LogAdd('Directory "'+GetLocalDir+par+'" created.');
+      mkdir(GetLocalDir()+par);
+      LogAdd('Directory "'+GetLocalDir()+par+'" created.');
     end;
   end
   else if(comm='RmDir') then //Remove Directory
   begin
-    if(DirectoryExists(GetLocalDir+par)) then
+    if(DirectoryExists(GetLocalDir()+par)) then
     begin
-      rmdir(GetLocalDir+par);
-      LogAdd('Directory "'+GetLocalDir+par+'" removed.');
+      rmdir(GetLocalDir()+par);
+      LogAdd('Directory "'+GetLocalDir()+par+'" removed.');
     end;
   end
   else if(comm='RmFile') then //Remove File
   begin
-    if(FileExists(GetLocalDir+par)) then
+    if(FileExists(GetLocalDir()+par)) then
     begin
-      deletefile(PWChar(GetLocalDir+par));
-      LogAdd('File "'+GetLocalDir+par+'" removed.');
+      deletefile(PWChar(GetLocalDir()+par));
+      LogAdd('File "'+GetLocalDir()+par+'" removed.');
     end;
   end
   else if(comm='CopyFile') then //Copy File
   begin
-    if(FileExists(GetLocalDir+CommandParams(line,0))) then
+    if(FileExists(GetLocalDir()+CommandParams(line,0))) then
     begin
-      if(FileExists(GetLocalDir+CommandParams(line,1))) then
+      if(FileExists(GetLocalDir()+CommandParams(line,1))) then
       begin
         if(CommandParams(line,2)='overwrite') then
         begin
-          CopyFile(PWChar(GetLocalDir+CommandParams(line,0)),PWChar(GetLocalDir+CommandParams(line,1)),false);
-          LogAdd('File "'+GetLocalDir+CommandParams(line,0)+'" copied to "'+GetLocalDir+CommandParams(line,1)+'". autooverwrite');
+          CopyFile(PWChar(GetLocalDir()+CommandParams(line,0)),PWChar(GetLocalDir()+CommandParams(line,1)),false);
+          LogAdd('File "'+GetLocalDir()+CommandParams(line,0)+'" copied to "'+GetLocalDir()+CommandParams(line,1)+'". autooverwrite');
         end
         else
         begin
           {$IFDEF CONSOLE}
-          write('File "'+GetLocalDir+CommandParams(line,1)+'" already exists, overwrite? [y/n]: ');
+          write('File "'+GetLocalDir()+CommandParams(line,1)+'" already exists, overwrite? [y/n]: ');
           read(yn);
           readln;
           {$ELSE}
@@ -451,8 +455,8 @@ begin
           SetLength(yn,1);
           if(yn='y') then // if user type "y" it means "yes"
           begin
-            CopyFile(PWChar(GetLocalDir+CommandParams(line,0)),PWChar(GetLocalDir+CommandParams(line,1)),false);
-            LogAdd('File "'+GetLocalDir+CommandParams(line,0)+'" copied to "'+GetLocalDir+CommandParams(line,1)+'".');
+            CopyFile(PWChar(GetLocalDir()+CommandParams(line,0)),PWChar(GetLocalDir()+CommandParams(line,1)),false);
+            LogAdd('File "'+GetLocalDir()+CommandParams(line,0)+'" copied to "'+GetLocalDir()+CommandParams(line,1)+'".');
           end
           else
             LogAdd('OK');
@@ -460,25 +464,25 @@ begin
       end
       else
       begin
-        CopyFile(PWChar(GetLocalDir+CommandParams(line,0)),PWChar(GetLocalDir+CommandParams(line,1)),false);
-        LogAdd('File "'+GetLocalDir+CommandParams(line,0)+'" copied to "'+GetLocalDir+CommandParams(line,1)+'".');
+        CopyFile(PWChar(GetLocalDir()+CommandParams(line,0)),PWChar(GetLocalDir()+CommandParams(line,1)),false);
+        LogAdd('File "'+GetLocalDir()+CommandParams(line,0)+'" copied to "'+GetLocalDir()+CommandParams(line,1)+'".');
       end;
     end
     else
-      LogAdd('File "'+GetLocalDir+CommandParams(line,0)+'" copied to "'+GetLocalDir+CommandParams(line,1)+'" failed! File "'+CommandParams(line,0)+'" doesn´t exists!');
+      LogAdd('File "'+GetLocalDir()+CommandParams(line,0)+'" copied to "'+GetLocalDir()+CommandParams(line,1)+'" failed! File "'+CommandParams(line,0)+'" doesn´t exists!');
   end
   else if(comm='Execute') then
   begin
-    if(FileExists(GetLocalDir+CommandParams(line,0))) then
+    if(FileExists(GetLocalDir()+CommandParams(line,0))) then
     begin
       if(GetWinVersion=wvWinVista) then
       begin
-        ShellExecute(Handle,'runas',PWChar(GetLocalDir+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),1);
+        ShellExecute(Handle,'runas',PWChar(GetLocalDir()+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),1);
         LogAdd('File "'+CommandParams(line,0)+'" executed as admin with "'+StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])+'" parameters.');
       end
       else
       begin
-        ShellExecute(Handle,'open',PWChar(GetLocalDir+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),1);
+        ShellExecute(Handle,'open',PWChar(GetLocalDir()+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir),1);
         LogAdd('File "'+CommandParams(line,0)+'" executed with "'+StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])+'" parameters.');
       end;
     end
@@ -487,7 +491,7 @@ begin
   end
   else if(comm='DownloadFile') then
   begin
-    if(fileexists(GetLocalDir+CommandParams(line,1))) then
+    if(fileexists(GetLocalDir()+CommandParams(line,1))) then
     begin
       if(CommandParams(line,2)='overwrite') then
       begin
@@ -497,7 +501,7 @@ begin
       else
       begin
         {$IFDEF CONSOLE}
-        write('File "',GetLocalDir+CommandParams(line,1),'" already exists, overwrite? [y/n]: ');
+        write('File "',GetLocalDir()+CommandParams(line,1),'" already exists, overwrite? [y/n]: ');
         read(yn);
         readln;
         {$ELSE}
@@ -532,7 +536,7 @@ begin
   begin
     if(ZipHandler.IsValid(CommandParams(line,0))) then
     begin
-      ZipHandler.ExtractZipFile(CommandParams(line,0),GetLocalPath+CommandParams(line,1));
+      ZipHandler.ExtractZipFile(CommandParams(line,0),GetLocalPath()+CommandParams(line,1));
       LogAdd('File "'+CommandParams(line,0)+'" extracted to "'+CommandParams(line,1)+'".');
     end
     else
@@ -557,8 +561,8 @@ begin
   writeln(_log.Strings[_log.Count-1]);
   {$ELSE}
   Form1.HandleGeoOSScriptMsg(_log.Strings[_log.Count-1]);
-  result:=_log;
   {$ENDIF}
+  result:=_log;
 end;
 
 function functions.init(): boolean;
@@ -571,6 +575,7 @@ begin
   {$ENDIF}
   _log:=TStringList.Create();
   _log.Add('GeoOS Script Log Init.');
+  result:=true;
 end;
 
 end.

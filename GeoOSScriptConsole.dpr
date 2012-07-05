@@ -29,12 +29,14 @@ begin
   reg.Free;             //release memory from using registry variable
   params.Free;          //release memory from using stringlist variable
   onlinedirectory.Free; //release memory from using online directory list
+  result:=true;
 end;
 
 function TerminateMe(): boolean;
 begin
   FreeAll();
   gfunctions.TerminateMe();
+  result:=true;
 end;
 
 procedure Split(Delimiter: Char; Str: string; ListOfStrings: TStrings); // Split what we need
@@ -91,7 +93,6 @@ end;
 
 function RemoveAndReg(reg_loc: string): boolean;
 var
-  i: integer;
   CommandSplit3: TStringList;
 begin
   CommandSplit3.Create();
@@ -100,6 +101,7 @@ begin
   CommandSplit3.Free;
   //reg.CloseKey;
   reg.DeleteKey(reg_loc);
+  result:=true;
 end;
 
 function Install(path: string): boolean; overload;
@@ -128,6 +130,7 @@ begin
   else
     writeln('Invalid Script Name!');
   close(f);
+  result:=true;
 end;
 
 function Install(path: string; temp: boolean): boolean; overload; // determinates, if installing script is in 'temporary' mode
@@ -155,6 +158,7 @@ begin
   end
   else
     Install(path);
+  result:=true;
 end;
 
 function Remove(path: string): boolean; overload;
@@ -169,6 +173,7 @@ begin
     writeln(line);
   until EOF(f);
   close(f);
+  result:=true;
 end;
 
 function Remove(path: string; temp: boolean): boolean; overload; // determinates, if removing script is in 'temporary' mode
@@ -196,6 +201,7 @@ begin
   end
   else
     Remove(path);
+  result:=true;
 end;
 
 function SetOption(option: string; value: string): boolean;
@@ -258,6 +264,7 @@ begin
   end;
   // end of inicializing of registry variable
   gfunctions.init();
+  result:=true;
 end;
 
 function InsertGos(str: string): string;  //for online database
