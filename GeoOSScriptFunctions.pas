@@ -272,14 +272,19 @@ begin
     result:='';
 end;
 
-function functions.BetaToFloat(version: string; usetestingversion: boolean): real; // converts ß in to 0.5 + assign beta number (ß1, ß2, ß3 for testing)
+function functions.BetaToFloat(version: string; usetestingversion: boolean): real; // converts ß, assign beta number (ß1, ß2, ß3 for testing) and change it to 0.01 sub version (testing)
 var
   Split3: TStringList;
 begin
   Split3:=TStringList.Create();
   Split('ß',version,Split3);
   if((Split3.Count>1) and (usetestingversion)) then
-    result:=StrToFloat(Split3.Strings[0])+(StrToFloat(Split3.Strings[1])/100)
+  begin
+    if((StrToFloat(Split3.Strings[1])/10) > 1) then
+      result:=StrToFloat(Split3.Strings[0])-0.1+(StrToFloat(Split3.Strings[1])/1000)
+    else
+      result:=StrToFloat(Split3.Strings[0])-0.1+(StrToFloat(Split3.Strings[1])/100)
+  end
   else
     result:=StrToFloat(Split3.Strings[0]);
   Split3.Free;
