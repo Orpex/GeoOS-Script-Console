@@ -1,6 +1,6 @@
 unit GeoOSScriptFunctions;
 {
-  Version 0.24
+  Version 0.26
   Copyright 2012 Geodar
   https://github.com/Geodar/GeoOS_Script_Functions
 }
@@ -32,7 +32,8 @@ interface
     function empty(str: string): boolean; stdcall;
     function GetLocalDir(): string; stdcall;
     function GetLocalPath(): string; stdcall;
-    function CheckVersionInOnlineStore(programname: string; currversion: real): real; stdcall;
+    function BetaToFloat(version: string; usetestingversion: boolean): real; stdcall;
+    function CheckVersionInOnlineStore(programname: string; currversiontext: string; usetestingversion: boolean): string; stdcall;
     procedure Split(Delimiter: Char; Str: string; ListOfStrings: TStrings);
   end;
 
@@ -271,25 +272,43 @@ begin
     result:='';
 end;
 
-function functions.CheckVersionInOnlineStore(programname: string; currversion: real): real;
+function functions.BetaToFloat(version: string; usetestingversion: boolean): real; // converts ß in to 0.5 + assign beta number (ß1, ß2, ß3 for testing)
 var
-  fFile: Text;
-  line: string;
+  Split3: TStringList;
 begin
-  result:=0.0;
+  Split3:=TStringList.Create();
+  Split('ß',version,Split3);
+  if((Split3.Count>1) and (usetestingversion)) then
+    result:=StrToFloat(Split3.Strings[0])+(StrToFloat(Split3.Strings[1])/100)
+  else
+    result:=StrToFloat(Split3.Strings[0]);
+  Split3.Free;
+end;
+
+function functions.CheckVersionInOnlineStore(programname: string; currversiontext: string; usetestingversion: boolean): string;
+var
+  fFile: TStringList;
+  currversion: real;
+  i: integer;
+begin
+  fFile:=TStringList.Create();
+  result:='0';
+  i:=0;
+  currversion:=BetaToFloat(currversiontext,usetestingversion);
   DownloadFile('http://geodar.hys.cz/geoos/'+programname+'.gos',GetLocalDir()+programname+'.gos');
   if(FileExists(GetLocalDir()+programname+'.gos')) then
   begin
-    Assign(fFile,GetLocalDir()+programname+'.gos');
-    reset(fFile);
-    repeat
-      readln(fFile,line);
-      if(ReadCommand(line)='Version') then
-        if(StrToFloat(CommandParams(line))>currversion) then
-          result:=StrToFloat(CommandParams(line));
-    until EOF(fFile) or not(result=0);
-    Close(fFile);
+    fFile.LoadFromFile(GetLocalDir()+programname+'.gos');
+    DeleteFile(GetLocalDir()+programname+'.gos');
+    while ((i<fFile.Count) and (result='0')) do
+    begin
+      if(ReadCommand(fFile.Strings[i])='Version') then
+        if(BetaToFloat(CommandParams(fFile.Strings[i]),usetestingversion)>currversion) then
+          result:=CommandParams(fFile.Strings[i]);
+      i:=i+1;
+    end;
   end;
+  fFile.Free;
 end;
 
 function functions.CheckDirAndDownloadFile(url: string; path: string): boolean;
@@ -346,7 +365,7 @@ var
   comm,par: string;
   yn: string;
 begin
-  comm:=ReadCommand(line);
+  comm:=LowerCase(ReadCommand(line));
   par:=CommandParams(line);
   result:=true;
   {$IFNDEF CONSOLE}
@@ -357,32 +376,34 @@ begin
     LogAdd('Command whitespace');
     result:=false;
   end
-  else if((comm='CloseMe') or (comm='TerminateMe')) then
+  {$IFDEF CONSOLE}
+  else if((comm='closeme') or (comm='terminateme')) then
   begin
     TerminateMe();
     result:=true;
   end
+  {$ENDIF}
   else if(empty(par)) then // if parameter is missing, don't do anything
   begin
     LogAdd('Parameter whitespace');
     result:=false;
   end
-  else if(comm='ScriptName') then
+  else if(comm='scriptname') then
     LogAdd('Script name: '+par)
-  else if(comm='Author') then //Write script's author
+  else if(comm='author') then //Write script's author
     LogAdd('Script´s Author: '+par)
-  else if(comm='Log') then //Write a message
+  else if(comm='log') then //Write a message
     LogAdd(StringReplace(par,'_',' ', [rfReplaceAll, rfIgnoreCase]))
   {$IFDEF CONSOLE}
-  else if(comm='LogEnter') then //Write a message, user need to hit enter to continue with program
+  else if(comm='logenter') then //Write a message, user need to hit enter to continue with program
   begin
     write(StringReplace(par,'_',' ', [rfReplaceAll, rfIgnoreCase]));
     readln;
   end
   {$ENDIF}
-  else if(comm='Version') then //Write a message
+  else if(comm='version') then //Write a message
     LogAdd('Script Version: '+par)
-  else if(comm='PromptYesNo') then //Ask user to do some command, if 'y' is prompt that command will be used
+  else if(comm='promptyesno') then //Ask user to do some command, if 'y' is prompt that command will be used
   begin
     {$IFDEF CONSOLE}
     write(StringReplace(CommandParams(line,0),'_',' ', [rfReplaceAll, rfIgnoreCase])+' [y/n]: ');
@@ -408,7 +429,7 @@ begin
     else
       LogAdd('Prompt: Do Nothing');
   end
-  else if(comm='MkDir') then //Create Directory
+  else if(comm='mkdir') then //Create Directory
   begin
     if not(DirectoryExists(GetLocalDir()+par)) then
     begin
@@ -416,7 +437,7 @@ begin
       LogAdd('Directory "'+GetLocalDir()+par+'" created.');
     end;
   end
-  else if(comm='RmDir') then //Remove Directory
+  else if(comm='rmdir') then //Remove Directory
   begin
     if(DirectoryExists(GetLocalDir()+par)) then
     begin
@@ -424,7 +445,7 @@ begin
       LogAdd('Directory "'+GetLocalDir()+par+'" removed.');
     end;
   end
-  else if(comm='RmFile') then //Remove File
+  else if(comm='rmfile') then //Remove File
   begin
     if(FileExists(GetLocalDir()+par)) then
     begin
@@ -432,7 +453,7 @@ begin
       LogAdd('File "'+GetLocalDir()+par+'" removed.');
     end;
   end
-  else if(comm='CopyFile') then //Copy File
+  else if(comm='copyfile') then //Copy File
   begin
     if(FileExists(GetLocalDir()+CommandParams(line,0))) then
     begin
@@ -471,7 +492,7 @@ begin
     else
       LogAdd('File "'+GetLocalDir()+CommandParams(line,0)+'" copied to "'+GetLocalDir()+CommandParams(line,1)+'" failed! File "'+CommandParams(line,0)+'" doesn´t exists!');
   end
-  else if(comm='Execute') then
+  else if(comm='execute') then
   begin
     if(FileExists(GetLocalDir()+CommandParams(line,0))) then
     begin
@@ -489,7 +510,7 @@ begin
     else
       LogAdd('File "'+CommandParams(line,0)+'" doesn´t exists!');
   end
-  else if(comm='DownloadFile') then
+  else if(comm='downloadfile') then
   begin
     if(fileexists(GetLocalDir()+CommandParams(line,1))) then
     begin
@@ -522,7 +543,7 @@ begin
     end;
     LogAdd('OK');
   end
-  else if(comm='ZipExtract') then
+  else if(comm='zipextract') then
   begin
     if(ZipHandler.IsValid(par)) then
     begin
@@ -532,7 +553,7 @@ begin
     else
       LogAdd('File "'+par+'" is not valid zip file!');
   end
-  else if(comm='ZipExtractTo') then
+  else if(comm='zipextractto') then
   begin
     if(ZipHandler.IsValid(CommandParams(line,0))) then
     begin
