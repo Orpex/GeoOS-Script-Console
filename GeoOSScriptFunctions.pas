@@ -208,11 +208,18 @@ begin
     end;
     if(fIDHTTP[availabledl].Response.ResponseCode=200) then
     begin
-      fIDHTTP[availabledl].Get(url, Stream[availabledl]);
-      if FileExists(destinationFileName) then
-        DeleteFile(PWideChar(destinationFileName));
-      Stream[availabledl].SaveToFile(destinationFileName);
-      result := TRUE;
+      try
+        fIDHTTP[availabledl].Get(url, Stream[availabledl]);
+        if FileExists(destinationFileName) then
+          DeleteFile(PWideChar(destinationFileName));
+        Stream[availabledl].SaveToFile(destinationFileName);
+        result := TRUE;
+      except
+        On E: Exception do
+        begin
+          Result := FALSE;
+        end;
+      end;
     end;
     FreeAndNil(Stream[availabledl]);
     FreeAndNil(fIDHTTP[availabledl]);
@@ -396,12 +403,12 @@ begin
     if(FileExists(GetLocalDir()+'tmpscript.gos')) then
     begin
       fFile.LoadFromFile(GetLocalDir()+'tmpscript.gos');
-      DeleteFile(GetLocalDir()+'tmpscript.gos');
       if(ReadCommand(fFile.Strings[0])='scriptname') then
       begin
         ReadAndDoCommands('CopyFile=tmpscript.gos,'+CommandParams(fFile.Strings[0])+'.gos');
         if(FileExists(GetLocalDir()+CommandParams(fFile.Strings[0])+'.gos')) then
         begin
+          DeleteFile(GetLocalDir()+'tmpscript.gos');
           result:=RunFile(GetLocalDir()+CommandParams(fFile.Strings[0])+'.gos');
         end
         else
@@ -612,7 +619,10 @@ begin
       LogAdd('Downloading "'+CommandParams(line,0)+'" to "'+GetLocalDir()+CommandParams(line,1)+'" ...');
       result:=CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
     end;
-    LogAdd('OK');
+    if(result) then
+      LogAdd('OK')
+    else
+      LogAdd('Download not completed, maybe another process is using this file or remote file doesn´t exists!');
   end
   else if(comm='zipextract') then
   begin
