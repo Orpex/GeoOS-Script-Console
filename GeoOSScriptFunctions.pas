@@ -1,6 +1,6 @@
 unit GeoOSScriptFunctions;
 {
-  Version 0.3
+  Version 0.31
   Copyright 2012 Geodar
   https://github.com/Geodar/GeoOS_Script_Functions
 }
@@ -19,7 +19,8 @@ interface
     function DownloadFile(const url: string; const destinationFileName: string): boolean; stdcall;
     function GetParams(): string; stdcall;
     function LookUpForParams(): string; stdcall;
-    function ReadCommand(str: string): string; stdcall;
+    function ReadCommand(str: string): string; overload; stdcall;
+    function ReadCommand(str: string; lower: boolean): string; overload; stdcall;
     function CommandParams(str: string): string; overload; stdcall;
     function CommandParams(str: string; index: integer): string; overload; stdcall;
     function CommandParams(str: string; index: integer; commandindex: integer): string; overload; stdcall;
@@ -254,6 +255,20 @@ begin
     result:=LowerCase(CommandSplit1.Strings[0])
   else
     result:='';
+end;
+
+function functions.ReadCommand(str: string; lower: boolean): string;
+begin
+  if(lower) then
+    result:=ReadCommand(str)
+  else
+  begin
+    Split('=',str,CommandSplit1);
+    if not(CommandSplit1.Count=0) then
+      result:=LowerCase(CommandSplit1.Strings[0])
+    else
+      result:='';
+  end;
 end;
 
 function functions.CommandParams(str: string): string;
@@ -576,14 +591,18 @@ begin
     begin
       if(GetWinVersion=wvWinVista) then
       begin
-        ShellExecute(Handle,'runas',PWChar(GetLocalDir()+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),nil,1);
+        ShellExecute(Handle,'runas',PWChar(GetLocalDir()+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir()),1);
         LogAdd('File "'+CommandParams(line,0)+'" executed as admin with "'+StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])+'" parameters.');
       end
       else
       begin
-        ShellExecute(Handle,'open',PWChar(GetLocalDir()+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),nil,1);
+        ShellExecute(Handle,'open',PWChar(GetLocalDir()+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir()),1);
         LogAdd('File "'+CommandParams(line,0)+'" executed with "'+StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])+'" parameters.');
       end;
+    end
+    else if(IsRemote(CommandParams(line,0))) then
+    begin
+      ShellExecute(Handle,'open',PWChar(StringReplace(line,ReadCommand(line,false)+'=','', [rfReplaceAll, rfIgnoreCase])),nil,PWChar(GetLocalDir()),1);
     end
     else
       LogAdd('File "'+CommandParams(line,0)+'" doesn´t exists!');
@@ -646,7 +665,9 @@ begin
   end
   else if(comm='runfile') then //run GeoOS script file within script
   begin
-    if not(CheckAndRunFile(par)) then
+    if(CheckAndRunFile(par)) then
+      LogAdd('Installation completed!')
+    else
     begin
       LogAdd('Installation failed!');
       result:=false;
