@@ -95,7 +95,7 @@ function RemoveAndReg(reg_loc: string): boolean;
 var
   CommandSplit3: TStringList;
 begin
-  CommandSplit3.Create();
+  CommandSplit3:=TStringList.Create();
   //reg.OpenKey(reg_loc,false);
   //Split('|',reg.ReadString('Sum'),CommandSplit3); for removing, not yet implemented
   CommandSplit3.Free;
@@ -113,7 +113,7 @@ begin
   reset(f);
   readln(f,line);
   reset(f);
-  if(gfunctions.ReadCommand(line)='ScriptName') then
+  if(gfunctions.ReadCommand(line)='scriptName') then
   begin
     if(reg.KeyExists('Software\GeoOS-Script\'+gfunctions.CommandParams(line))) then //if exists -> update
       RemoveAndReg('Software\GeoOS-Script\'+gfunctions.CommandParams(line)); //delete previosly version
@@ -144,7 +144,7 @@ begin
     reset(f);
     readln(f,line);
     close(f);
-    if(gfunctions.ReadCommand(line)='ScriptName') then
+    if(gfunctions.ReadCommand(line)='scriptName') then
     begin
       CopyFile(PWChar(path),PWChar(GetLocalDir+gfunctions.CommandParams(line)+'.gos'),false);
       DeleteFile(PWChar(path));
@@ -187,7 +187,7 @@ begin
     reset(f);
     readln(f,line);
     close(f);
-    if(gfunctions.ReadCommand(line)='ScriptName') then
+    if(gfunctions.ReadCommand(line)='scriptName') then
     begin
       CopyFile(PWChar(path),PWChar(GetLocalDir+gfunctions.CommandParams(line)),false);
       DeleteFile(PWChar(path));
