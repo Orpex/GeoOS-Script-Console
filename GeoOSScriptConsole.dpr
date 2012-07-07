@@ -113,7 +113,7 @@ begin
   reset(f);
   readln(f,line);
   reset(f);
-  if(gfunctions.ReadCommand(line)='scriptName') then
+  if(gfunctions.ReadCommand(line)='scriptname') then
   begin
     if(reg.KeyExists('Software\GeoOS-Script\'+gfunctions.CommandParams(line))) then //if exists -> update
       RemoveAndReg('Software\GeoOS-Script\'+gfunctions.CommandParams(line)); //delete previosly version
@@ -144,7 +144,7 @@ begin
     reset(f);
     readln(f,line);
     close(f);
-    if(gfunctions.ReadCommand(line)='scriptName') then
+    if(gfunctions.ReadCommand(line)='scriptname') then
     begin
       CopyFile(PWChar(path),PWChar(GetLocalDir+gfunctions.CommandParams(line)+'.gos'),false);
       DeleteFile(PWChar(path));
@@ -187,7 +187,7 @@ begin
     reset(f);
     readln(f,line);
     close(f);
-    if(gfunctions.ReadCommand(line)='scriptName') then
+    if(gfunctions.ReadCommand(line)='scriptname') then
     begin
       CopyFile(PWChar(path),PWChar(GetLocalDir+gfunctions.CommandParams(line)),false);
       DeleteFile(PWChar(path));
