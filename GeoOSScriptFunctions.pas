@@ -1,6 +1,6 @@
 unit GeoOSScriptFunctions;
 {
-  Version 0.26
+  Version 0.3
   Copyright 2012 Geodar
   https://github.com/Geodar/GeoOS_Script_Functions
 }
@@ -32,8 +32,10 @@ interface
     function empty(str: string): boolean; stdcall;
     function GetLocalDir(): string; stdcall;
     function GetLocalPath(): string; stdcall;
-    function BetaToFloat(version: string; usetestingversion: boolean): real; stdcall;
-    function CheckVersionInOnlineStore(programname: string; currversiontext: string; usetestingversion: boolean): string; stdcall;
+    function CheckVersionInOnlineStore(programname: string; currversion: string; beta: boolean): string; stdcall;
+    function IsRemote(param: string): boolean; stdcall;
+    function RunFile(scriptlocation: string): boolean; stdcall;
+    function CheckAndRunFile(scriptlocation: string): boolean; stdcall;
     procedure Split(Delimiter: Char; Str: string; ListOfStrings: TStrings);
   end;
 
@@ -198,18 +200,22 @@ begin
     Stream[availabledl] := TMemoryStream.Create;
     try
       fIDHTTP[availabledl].Head(url);
-      if(fIDHTTP[availabledl].Response.ResponseCode=200) then
-      begin
-        fIDHTTP[availabledl].Get(url, Stream[availabledl]);
-        if FileExists(destinationFileName) then
-          DeleteFile(PWideChar(destinationFileName));
-        Stream[availabledl].SaveToFile(destinationFileName);
-        result := TRUE;
-      end;
-    finally
-      FreeAndNil(Stream[availabledl]);
-      FreeAndNil(fIDHTTP[availabledl]);
+    except
+       On E: Exception do
+        begin
+          Result := FALSE;
+        end;
     end;
+    if(fIDHTTP[availabledl].Response.ResponseCode=200) then
+    begin
+      fIDHTTP[availabledl].Get(url, Stream[availabledl]);
+      if FileExists(destinationFileName) then
+        DeleteFile(PWideChar(destinationFileName));
+      Stream[availabledl].SaveToFile(destinationFileName);
+      result := TRUE;
+    end;
+    FreeAndNil(Stream[availabledl]);
+    FreeAndNil(fIDHTTP[availabledl]);
   end;
 end;
 {$ENDIF}
@@ -238,7 +244,7 @@ function functions.ReadCommand(str: string): string;
 begin
   Split('=',str,CommandSplit1);
   if not(CommandSplit1.Count=0) then
-    result:=CommandSplit1.Strings[0]
+    result:=LowerCase(CommandSplit1.Strings[0])
   else
     result:='';
 end;
@@ -272,45 +278,28 @@ begin
     result:='';
 end;
 
-function functions.BetaToFloat(version: string; usetestingversion: boolean): real; // converts ß, assign beta number (ß1, ß2, ß3 for testing) and change it to 0.01 sub version (testing)
-var
-  Split3: TStringList;
-begin
-  Split3:=TStringList.Create();
-  Split('ß',version,Split3);
-  if((Split3.Count>1) and (usetestingversion)) then
-  begin
-    if((StrToFloat(Split3.Strings[1])/10) > 1) then
-      result:=StrToFloat(Split3.Strings[0])-0.1+(StrToFloat(Split3.Strings[1])/1000)
-    else
-      result:=StrToFloat(Split3.Strings[0])-0.1+(StrToFloat(Split3.Strings[1])/100)
-  end
-  else
-    result:=StrToFloat(Split3.Strings[0]);
-  Split3.Free;
-end;
-
-function functions.CheckVersionInOnlineStore(programname: string; currversiontext: string; usetestingversion: boolean): string;
+function functions.CheckVersionInOnlineStore(programname: string; currversion: string; beta: boolean): string;
 var
   fFile: TStringList;
-  currversion: real;
   i: integer;
 begin
   fFile:=TStringList.Create();
   result:='0';
   i:=0;
-  currversion:=BetaToFloat(currversiontext,usetestingversion);
-  DownloadFile('http://geodar.hys.cz/geoos/'+programname+'.gos',GetLocalDir()+programname+'.gos');
+  if(beta) then
+    DownloadFile('http://geodar.hys.cz/geoos/beta/'+programname+'.gos',GetLocalDir()+programname+'.gos')
+  else
+    DownloadFile('http://geodar.hys.cz/geoos/'+programname+'.gos',GetLocalDir()+programname+'.gos');
   if(FileExists(GetLocalDir()+programname+'.gos')) then
   begin
     fFile.LoadFromFile(GetLocalDir()+programname+'.gos');
     DeleteFile(GetLocalDir()+programname+'.gos');
     while ((i<fFile.Count) and (result='0')) do
     begin
-      if(ReadCommand(fFile.Strings[i])='Version') then
-        if(BetaToFloat(CommandParams(fFile.Strings[i]),usetestingversion)>currversion) then
+      if(ReadCommand(fFile.Strings[i])='version') then
+        if not(CommandParams(fFile.Strings[i])=currversion) then
           result:=CommandParams(fFile.Strings[i]);
-      i:=i+1;
+      inc(i);
     end;
   end;
   fFile.Free;
@@ -359,10 +348,85 @@ begin
   FreeAll();
   {$IFDEF CONSOLE}
   Halt(0); //terminate console
-  {$ELSE}
-  Application.Terminate; //terminate form program
   {$ENDIF}
   result:=true;
+end;
+
+function functions.IsRemote(param: string): boolean; //Local -> false | Remote -> true
+begin
+  if(MidStr(param,1,7)='http://') then result:=true        //accepting http:// as remote
+  else if(MidStr(param,1,8)='https://') then result:=true  //accepting https:// as remote
+  else if(MidStr(param,1,6)='ftp://') then result:=true    //accepting ftp:// as remote
+  else result:=false; //everything else is in local computer
+end;
+
+function functions.RunFile(scriptlocation: string): boolean; //run GeoOS script file
+var
+  fFile: TStringList;
+  i: integer;
+begin
+  result:=false;
+  i:=0;
+  fFile:=TStringList.Create();
+  if(FileExists(scriptlocation)) then
+  begin
+    fFile.LoadFromFile(scriptlocation);
+    LogAdd('-- Install file '+ExtractFileName(scriptlocation)+' --');
+    while i<fFile.Count do
+    begin
+      ReadAndDoCommands(fFile.Strings[i]);
+      inc(i);
+    end;
+    LogAdd('-- End of install file '+ExtractFileName(scriptlocation)+' --');
+    result:=true;
+  end;
+  fFile.Free;
+end;
+
+function functions.CheckAndRunFile(scriptlocation: string): boolean; //check for script download or handling
+var
+  fFile: TStringList;
+begin
+  result:=false;
+  fFile:=TStringList.Create();
+  if(IsRemote(scriptlocation)) then
+  begin
+    LogAdd('Installing file '+ExtractFileName(scriptlocation));
+    ReadAndDoCommands('DownloadFile='+scriptlocation+',tmpscript.gos,overwrite');
+    if(FileExists(GetLocalDir()+'tmpscript.gos')) then
+    begin
+      fFile.LoadFromFile(GetLocalDir()+'tmpscript.gos');
+      DeleteFile(GetLocalDir()+'tmpscript.gos');
+      if(ReadCommand(fFile.Strings[0])='scriptname') then
+      begin
+        ReadAndDoCommands('CopyFile=tmpscript.gos,'+CommandParams(fFile.Strings[0])+'.gos');
+        if(FileExists(GetLocalDir()+CommandParams(fFile.Strings[0])+'.gos')) then
+        begin
+          result:=RunFile(GetLocalDir()+CommandParams(fFile.Strings[0])+'.gos');
+        end
+        else
+          LogAdd('Copy file failed, installation aborded');
+      end
+      else
+        LogAdd('Script Name failed, installation aborded');
+    end
+    else
+      LogAdd('Download failed, installation aborded');
+  end
+  else
+  begin
+    if(FileExists(GetLocalDir()+scriptlocation)) then
+    begin
+      LogAdd('Installing file '+ExtractFileName(scriptlocation));
+      result:=RunFile(GetLocalDir()+scriptlocation);
+    end
+    else
+    begin
+      LogAdd('Installing file '+ExtractFileName(scriptlocation));
+      result:=RunFile(scriptlocation);
+    end;
+  end;
+  fFile.Free;
 end;
 
 function functions.ReadAndDoCommands(line: string): boolean; //the most important function!
@@ -370,7 +434,7 @@ var
   comm,par: string;
   yn: string;
 begin
-  comm:=LowerCase(ReadCommand(line));
+  comm:=ReadCommand(line);
   par:=CommandParams(line);
   result:=true;
   {$IFNDEF CONSOLE}
@@ -399,15 +463,17 @@ begin
     LogAdd('Script´s Author: '+par)
   else if(comm='log') then //Write a message
     LogAdd(StringReplace(par,'_',' ', [rfReplaceAll, rfIgnoreCase]))
-  {$IFDEF CONSOLE}
   else if(comm='logenter') then //Write a message, user need to hit enter to continue with program
   begin
+    {$IFDEF CONSOLE}
     write(StringReplace(par,'_',' ', [rfReplaceAll, rfIgnoreCase]));
     readln;
+    {$ELSE}
+    LogAdd('Command LogEnter is not supported under forms programs!');
+    {$ENDIF}
   end
-  {$ENDIF}
-  else if(comm='version') then //Write a message
-    LogAdd('Script Version: '+par)
+  else if(comm='version') then //Write current script version
+    LogAdd('Script´s Version: '+par)
   else if(comm='promptyesno') then //Ask user to do some command, if 'y' is prompt that command will be used
   begin
     {$IFDEF CONSOLE}
@@ -567,6 +633,14 @@ begin
     end
     else
       LogAdd('File "'+CommandParams(line,0)+'" is not valid zip file!');
+  end
+  else if(comm='runfile') then //run GeoOS script file within script
+  begin
+    if not(CheckAndRunFile(par)) then
+    begin
+      LogAdd('Installation failed!');
+      result:=false;
+    end;
   end
   else
   begin
