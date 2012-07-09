@@ -1,5 +1,9 @@
 ﻿program GeoOSScriptConsole;
 
+{
+  Version 0.6
+}
+
 {$APPTYPE CONSOLE}
 
 {$R *.res}
@@ -13,6 +17,9 @@ uses
   shellapi,                                           // windows run scripts
   StrUtils,                                           // some useful string functions, such as AnsiContainsStr
   GeoOSScriptFunctions in 'GeoOSScriptFunctions.pas'; // functions file
+
+const
+  version = '0.6';
 
 var
   paramsraw:                            string;  // implement variables for recognition of
@@ -52,7 +59,7 @@ var index: integer;
 begin
   index:=-1;  //because index cannot be negative
   index:=params.IndexOf(param);
-  if not(index=-1) then //if index of given searched string isn't found, value of 'index' is still -1 (not found)
+  if(index>-1) then //if index of given searched string isn't found, value of 'index' is still -1 (not found)
     result:=true //param is found
   else
     result:=false; //param is not found
@@ -79,16 +86,6 @@ function empty(str: string): boolean;
 begin
   if(Length(str)=0) then result:=true
   else result:=false;
-end;
-
-function GetLocalDir(): string;   //same function as GetLocalPath()
-begin
-  result:=ExtractFilePath(ParamStr(0));
-end;
-
-function GetLocalPath(): string; //same function as GetLocalDir()
-begin
-  result:=ExtractFilePath(ParamStr(0));
 end;
 
 function RemoveAndReg(reg_loc: string): boolean;
@@ -123,7 +120,7 @@ begin
     until EOF(f);
     reg.OpenKey('Software\GeoOS-Script\'+gfunctions.CommandParams(line),true);
     reg.WriteString('Sum',paramsraw);
-    reg.WriteString('InstallDir',GetLocalDir);
+    reg.WriteString('InstallDir',gfunctions.GetLocalDir());
     reg.CloseKey;
     writeln('--- END ---');
   end
@@ -146,9 +143,9 @@ begin
     close(f);
     if(gfunctions.ReadCommand(line)='scriptname') then
     begin
-      CopyFile(PWChar(path),PWChar(GetLocalDir+gfunctions.CommandParams(line)+'.gos'),false);
+      CopyFile(PWChar(path),PWChar(gfunctions.GetLocalDir()+gfunctions.CommandParams(line)+'.gos'),false);
       DeleteFile(PWChar(path));
-      Install(GetLocalDir+gfunctions.CommandParams(line)+'.gos');
+      Install(gfunctions.GetLocalDir()+gfunctions.CommandParams(line)+'.gos');
     end
     else
     begin
@@ -189,9 +186,9 @@ begin
     close(f);
     if(gfunctions.ReadCommand(line)='scriptname') then
     begin
-      CopyFile(PWChar(path),PWChar(GetLocalDir+gfunctions.CommandParams(line)),false);
+      CopyFile(PWChar(path),PWChar(gfunctions.GetLocalDir()+gfunctions.CommandParams(line)),false);
       DeleteFile(PWChar(path));
-      Remove(GetLocalDir+gfunctions.CommandParams(line));
+      Remove(gfunctions.GetLocalDir()+gfunctions.CommandParams(line));
     end
     else
     begin
@@ -264,15 +261,8 @@ begin
   end;
   // end of inicializing of registry variable
   gfunctions.init();
+  gfunctions.SetProgramVersion(version);
   result:=true;
-end;
-
-function InsertGos(str: string): string;  //for online database
-begin
-  if(AnsiContainsStr(LowerCase(str),'.gos')) then
-    result:=str
-  else
-    result:=str+'.gos';
 end;
 
 begin
@@ -287,11 +277,11 @@ begin
     if(IsRemote(params[GetInitIndex('i')+1])) then
     begin
       //initialize download -not fully implemented
-      gfunctions.DownloadFile(params[GetInitIndex('i')+1],GetLocalDir+'tmpscript.gos');
-      if(FileExists(GetLocalDir+'tmpscript.gos')) then
+      gfunctions.DownloadFile(params[GetInitIndex('i')+1],gfunctions.GetLocalDir()+'tmpscript.gos');
+      if(FileExists(gfunctions.GetLocalDir()+'tmpscript.gos')) then
       begin
         writeln('Script downloaded!');
-        Install(GetLocalDir+'tmpscript.gos',true);
+        Install(gfunctions.GetLocalDir()+'tmpscript.gos',true);
       end
       else
         writeln('Script not found!');
@@ -300,25 +290,25 @@ begin
     begin
       if(FileExists(params[GetInitIndex('i')+1])) then //file exists in computer
         Install(params[GetInitIndex('i')+1])
-      else if(FileExists(GetLocalDir+ParamStr(GetInitIndex('i')+1))) then //file exists in local directory
-        Install(GetLocalDir+params[GetInitIndex('i')+1])
+      else if(FileExists(gfunctions.GetLocalDir()+ParamStr(GetInitIndex('i')+1))) then //file exists in local directory
+        Install(gfunctions.GetLocalDir()+params[GetInitIndex('i')+1])
       else
       begin
         //local file not found, try online directory
-        gfunctions.DownloadFile('http://geodar.hys.cz/geoos/list.goslist',GetLocalDir+'list.goslist');
-        if(FileExists(GetLocalDir+'list.goslist')) then //check if was downloading complete
+        gfunctions.DownloadFile('http://geodar.hys.cz/geoos/list.goslist',gfunctions.GetLocalDir()+'list.goslist');
+        if(FileExists(gfunctions.GetLocalDir()+'list.goslist')) then //check if was downloading complete
         begin
-          onlinedirectory.LoadFromFile(GetLocalDir+'list.goslist');
-          DeleteFile(PWChar(GetLocalDir+'list.goslist')); //save hard drive, 'lol'
+          onlinedirectory.LoadFromFile(gfunctions.GetLocalDir()+'list.goslist');
+          DeleteFile(PWChar(gfunctions.GetLocalDir()+'list.goslist')); //save hard drive, 'lol'
           writeln('Reading online directory, found ',onlinedirectory.Count,' scripts.');
-          if not(onlinedirectory.IndexOf(InsertGos(params[GetInitIndex('i')+1]))=-1) then
+          if not(onlinedirectory.IndexOf(params[GetInitIndex('i')+1])=-1) then
           begin
             //is found, download
-            gfunctions.DownloadFile('http://geodar.hys.cz/geoos/'+InsertGos(params[GetInitIndex('i')+1]),GetLocalDir+InsertGos(params[GetInitIndex('i')+1]));
-            if(FileExists(GetLocalDir+InsertGos(params[GetInitIndex('i')+1]))) then
+            gfunctions.DownloadFile('http://geodar.hys.cz/geoos/'+params[GetInitIndex('i')+1]+'.gos',gfunctions.GetLocalDir()+params[GetInitIndex('i')+1]+'.gos');
+            if(FileExists(gfunctions.GetLocalDir()+params[GetInitIndex('i')+1]+'.gos')) then
             begin
               writeln('Script downloaded from online directory!');
-              Install(GetLocalDir+InsertGos(params[GetInitIndex('i')+1]));
+              Install(gfunctions.GetLocalDir()+params[GetInitIndex('i')+1]+'.gos');
             end
             else
             begin
@@ -342,11 +332,11 @@ begin
     if(IsRemote(params[GetInitIndex('r')+1])) then
     begin
       //initialize download -not fully implemented
-      gfunctions.DownloadFile(params[GetInitIndex('r')+1],GetLocalDir+'tmpscript.gos');
-      if(FileExists(GetLocalDir+'tmpscript.gos')) then
+      gfunctions.DownloadFile(params[GetInitIndex('r')+1],gfunctions.GetLocalDir()+'tmpscript.gos');
+      if(FileExists(gfunctions.GetLocalDir()+'tmpscript.gos')) then
       begin
         writeln('Script downloaded!');
-        Remove(GetLocalDir+'tmpscript.gos',true);
+        Remove(gfunctions.GetLocalDir()+'tmpscript.gos',true);
       end
       else
         writeln('Script not found!');
@@ -355,25 +345,25 @@ begin
     begin
       if(FileExists(params[GetInitIndex('r')+1])) then //file exists in computer
         Remove(params[GetInitIndex('r')+1])
-      else if(FileExists(GetLocalDir+ParamStr(GetInitIndex('r')+1))) then //file exists in local directory
-        Remove(GetLocalDir+params[GetInitIndex('r')+1])
+      else if(FileExists(gfunctions.GetLocalDir()+ParamStr(GetInitIndex('r')+1))) then //file exists in local directory
+        Remove(gfunctions.GetLocalDir()+params[GetInitIndex('r')+1])
       else
       begin
         //local file not found, try online directory
-        gfunctions.DownloadFile('http://geodar.hys.cz/geoos/list.goslist',GetLocalDir+'list.goslist');
-        if(FileExists(GetLocalDir+'list.goslist')) then //check if was downloading complete
+        gfunctions.DownloadFile('http://geodar.hys.cz/geoos/list.goslist',gfunctions.GetLocalDir()+'list.goslist');
+        if(FileExists(gfunctions.GetLocalDir()+'list.goslist')) then //check if was downloading complete
         begin
-          onlinedirectory.LoadFromFile(GetLocalDir+'list.goslist');
-          DeleteFile(PWChar(GetLocalDir+'list.goslist')); //save hard drive, 'lol'
+          onlinedirectory.LoadFromFile(gfunctions.GetLocalDir()+'list.goslist');
+          DeleteFile(PWChar(gfunctions.GetLocalDir()+'list.goslist')); //save hard drive, 'lol'
           writeln('Reading online directory, found ',onlinedirectory.Count,' scripts.');
-          if not(onlinedirectory.IndexOf(InsertGos(params[GetInitIndex('r')+1]))=-1) then
+          if not(onlinedirectory.IndexOf(params[GetInitIndex('r')+1]+'.gos')=-1) then
           begin
             //is found, download
-            gfunctions.DownloadFile('http://geodar.hys.cz/geoos/'+InsertGos(params[GetInitIndex('r')+1]),GetLocalDir+InsertGos(params[GetInitIndex('r')+1]));
-            if(FileExists(GetLocalDir+InsertGos(params[GetInitIndex('r')+1]))) then
+            gfunctions.DownloadFile('http://geodar.hys.cz/geoos/'+params[GetInitIndex('r')+1]+'.gos',gfunctions.GetLocalDir()+params[GetInitIndex('r')+1]+'.gos');
+            if(FileExists(gfunctions.GetLocalDir()+params[GetInitIndex('r')+1]+'.gos')) then
             begin
               writeln('Script downloaded from online directory!');
-              Remove(GetLocalDir+InsertGos(params[GetInitIndex('r')+1]));
+              Remove(gfunctions.GetLocalDir()+params[GetInitIndex('r')+1]+'.gos');
             end
             else
             begin
@@ -420,11 +410,11 @@ begin
   else if(SearchForSplitParam('-l')) then
   begin
     //list online directory
-    gfunctions.DownloadFile('http://geodar.hys.cz/geoos/list.goslist',GetLocalDir+'list.goslist');
-    if(FileExists(GetLocalDir+'list.goslist')) then //check if was downloading complete
+    gfunctions.DownloadFile('http://geodar.hys.cz/geoos/list.goslist',gfunctions.GetLocalDir()+'list.goslist');
+    if(FileExists(gfunctions.GetLocalDir()+'list.goslist')) then //check if was downloading complete
     begin
-      onlinedirectory.LoadFromFile(GetLocalDir+'list.goslist');
-      DeleteFile(PWChar(GetLocalDir+'list.goslist')); //save hard drive, 'lol'
+      onlinedirectory.LoadFromFile(gfunctions.GetLocalDir()+'list.goslist');
+      DeleteFile(PWChar(gfunctions.GetLocalDir()+'list.goslist')); //save hard drive, 'lol'
       writeln('Reading online directory, found ',onlinedirectory.Count,' scripts.');
       for p:=0 to onlinedirectory.Count-1 do
         writeln(onlinedirectory[p]);

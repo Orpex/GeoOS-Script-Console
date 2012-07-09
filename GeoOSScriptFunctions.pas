@@ -1,12 +1,12 @@
 unit GeoOSScriptFunctions;
 {
-  Version 0.31
+  Version 0.34
   Copyright 2012 Geodar
   https://github.com/Geodar/GeoOS_Script_Functions
 }
 interface
   uses
-    Windows, SysUtils, Classes, shellapi, Zip, StrUtils
+    Windows, SysUtils, Classes, shellapi, Zip, StrUtils, Registry
     {$IFDEF CONSOLE}, WinINet
     {$ELSE}, Dialogs, IdHTTP, IdAntiFreeze, IdComponent, Forms{$ENDIF};
 
@@ -32,11 +32,11 @@ interface
     function init(): boolean; stdcall;
     function empty(str: string): boolean; stdcall;
     function GetLocalDir(): string; stdcall;
-    function GetLocalPath(): string; stdcall;
     function CheckVersionInOnlineStore(programname: string; currversion: string; beta: boolean): string; stdcall;
     function IsRemote(param: string): boolean; stdcall;
     function RunFile(scriptlocation: string): boolean; stdcall;
     function CheckAndRunFile(scriptlocation: string): boolean; stdcall;
+    function SetProgramVersion(stringversion: string): boolean; stdcall;
     procedure Split(Delimiter: Char; Str: string; ListOfStrings: TStrings);
   end;
 
@@ -46,6 +46,10 @@ interface
     CommandSplit2:                TStringList;  // for spliting of commands (minor - if multiple parameters, split them too)
     Handle:                              HWND;  // some handle variable for shellapi
     _log:                         TStringList;  // holds information about scripts progress
+    progversion:                       string;  // program version in string
+    ifversionactivated:               boolean;  // for ReadAndDoCommands
+    ifversioninfo:                     string;  // for ReadAndDoCommands
+    reg:                            TRegistry;  // for accessing windows registry
     {$IFNDEF CONSOLE}
     fIDHTTP:          array [1..5] of TIDHTTP;  // max support for 5 downloads at time
     Stream:     array [1..5] of TMemoryStream;  // downloading streams
@@ -73,11 +77,6 @@ begin
 end;
 
 function functions.GetLocalDir(): string;   //same function as GetLocalPath()
-begin
-  result:=ExtractFilePath(ParamStr(0));
-end;
-
-function functions.GetLocalPath(): string; //same function as GetLocalDir()
 begin
   result:=ExtractFilePath(ParamStr(0));
 end;
@@ -127,12 +126,13 @@ function functions.GetWinVersion: TWinVersion; //taken from GeoOS_Main.exe
 
 function functions.FreeAll(): boolean;
 begin
-  CommandSplit1.Free;   //release memory from using main split
-  CommandSplit2.Free;   //release memory from using minor split
-  ZipHandler.Free;      //release memory from using zip handler
-  _log.Free;            //release memory from logs
+  CommandSplit1.Free;   // release memory from using main split
+  CommandSplit2.Free;   // release memory from using minor split
+  ZipHandler.Free;      // release memory from using zip handler
+  _log.Free;            // release memory from logs
+  reg.Free;             // release memory from using windows registry
   {$IFNDEF CONSOLE}
-  idAntiFreeze.Free;
+  idAntiFreeze.Free;    // release memory from using indy's antifreeze
   {$ENDIF}
   result:=true;
 end;
@@ -362,7 +362,7 @@ begin
   end;
   splitdir.Free;
   splitdir2.Free;
-  result:=DownloadFile(url,GetLocalPath()+path);
+  result:=DownloadFile(url,GetLocalDir()+path);
 end;
 
 function functions.TerminateMe(): boolean;
@@ -420,7 +420,7 @@ begin
       fFile.LoadFromFile(GetLocalDir()+'tmpscript.gos');
       if(ReadCommand(fFile.Strings[0])='scriptname') then
       begin
-        ReadAndDoCommands('CopyFile=tmpscript.gos,'+CommandParams(fFile.Strings[0])+'.gos');
+        ReadAndDoCommands('CopyFile=tmpscript.gos,'+CommandParams(fFile.Strings[0])+'.gos,overwrite');
         if(FileExists(GetLocalDir()+CommandParams(fFile.Strings[0])+'.gos')) then
         begin
           DeleteFile(GetLocalDir()+'tmpscript.gos');
@@ -456,6 +456,17 @@ var
   comm,par: string;
   yn: string;
 begin
+  if(ifversionactivated) then
+    if(line='end::') then
+    begin
+      ifversionactivated:=false;
+      ifversioninfo:='';
+    end
+    else if not(ifversioninfo=progversion) then
+    begin
+      result:=false;
+      exit;
+    end;
   comm:=ReadCommand(line);
   par:=CommandParams(line);
   result:=true;
@@ -478,6 +489,11 @@ begin
   begin
     LogAdd('Parameter whitespace');
     result:=false;
+  end
+  else if(comm='::ifversion') then
+  begin
+    ifversionactivated:=true;
+    ifversioninfo:=par;
   end
   else if(comm='scriptname') then
     LogAdd('Script name: '+par)
@@ -545,6 +561,41 @@ begin
       deletefile(PWChar(GetLocalDir()+par));
       LogAdd('File "'+GetLocalDir()+par+'" removed.');
     end;
+  end
+  else if(comm='setregistry') then //set value into windows registry
+  begin
+    result:=false;
+    if(CommandParams(line,0)='HKEY_CLASSES_ROOT') then
+      reg.RootKey:=HKEY_CLASSES_ROOT
+    else if(CommandParams(line,0)='HKEY_LOCAL_MACHINE') then
+      reg.RootKey:=HKEY_LOCAL_MACHINE
+    else if(CommandParams(line,0)='HKEY_USERS') then
+      reg.RootKey:=HKEY_USERS
+    else if(CommandParams(line,0)='HKEY_CURRENT_CONFIG') then
+      reg.RootKey:=HKEY_CURRENT_CONFIG
+    else //if(CommandParams(line,0)='HKEY_CURRENT_USER') then
+      reg.RootKey:=HKEY_CURRENT_USER;
+    if((reg.KeyExists(CommandParams(line,1)) or not(empty(CommandParams(line,1)))) and not(empty(CommandParams(line,2))) and not(empty(CommandParams(line,3))) and not(empty(CommandParams(line,4)))) then
+    begin
+      reg.OpenKey(CommandParams(line,1),true);
+      if(LowerCase(CommandParams(line,2))='string') then
+        reg.WriteString(CommandParams(line,3),CommandParams(line,4))
+      else if((LowerCase(CommandParams(line,2))='integer') or (LowerCase(CommandParams(line,2))='int')) then
+        reg.WriteInteger(CommandParams(line,3),StrToInt(CommandParams(line,4)))
+      else if(LowerCase(CommandParams(line,2))='float') then
+        reg.WriteFloat(CommandParams(line,3),StrToFloat(CommandParams(line,4)))
+      else if((LowerCase(CommandParams(line,2))='boolean') or (LowerCase(CommandParams(line,2))='bool')) then
+      begin
+        if(LowerCase(CommandParams(line,4))='true') then
+          reg.WriteBool(CommandParams(line,3),true)
+        else
+          reg.WriteBool(CommandParams(line,3),false);
+      end;
+      LogAdd('Modification in Registry completed!');
+      result:=true;
+    end
+    else
+      LogAdd('Modification in Registry not completed! Something is mission or invalid key.');
   end
   else if(comm='copyfile') then //Copy File
   begin
@@ -647,7 +698,7 @@ begin
   begin
     if(ZipHandler.IsValid(par)) then
     begin
-      ZipHandler.ExtractZipFile(par,GetLocalPath()+'geoos\');
+      ZipHandler.ExtractZipFile(par,GetLocalDir()+'geoos\');
       LogAdd('File "'+par+'" extracted.');
     end
     else
@@ -657,7 +708,7 @@ begin
   begin
     if(ZipHandler.IsValid(CommandParams(line,0))) then
     begin
-      ZipHandler.ExtractZipFile(CommandParams(line,0),GetLocalPath()+CommandParams(line,1));
+      ZipHandler.ExtractZipFile(CommandParams(line,0),GetLocalDir()+CommandParams(line,1));
       LogAdd('File "'+CommandParams(line,0)+'" extracted to "'+CommandParams(line,1)+'".');
     end
     else
@@ -696,6 +747,13 @@ begin
   result:=_log;
 end;
 
+function functions.SetProgramVersion(stringversion: string): boolean;
+begin
+  //when you want to use ::ifversion in script, you need to get current version set with this function
+  progversion:=stringversion;
+  result:=true;
+end;
+
 function functions.init(): boolean;
 begin
   CommandSplit1:=TStringList.Create();
@@ -706,6 +764,10 @@ begin
   {$ENDIF}
   _log:=TStringList.Create();
   _log.Add('GeoOS Script Log Init.');
+  reg:=TRegistry.Create();
+  progversion:='';
+  ifversioninfo:='';
+  ifversionactivated:=false;
   result:=true;
 end;
 
