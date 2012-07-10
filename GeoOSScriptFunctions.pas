@@ -47,7 +47,8 @@ interface
     Handle:                              HWND;  // some handle variable for shellapi
     _log:                         TStringList;  // holds information about scripts progress
     progversion:                       string;  // program version in string
-    ifversioninfo:                     string;  // for ReadAndDoCommands
+    ifinfo:                            string;  // for ReadAndDoCommands
+    ifmode:                          smallint;  // GOScript if
     reg:                            TRegistry;  // for accessing windows registry
     {$IFNDEF CONSOLE}
     fIDHTTP:          array [1..5] of TIDHTTP;  // max support for 5 downloads at time
@@ -455,17 +456,27 @@ var
   comm,par: string;
   yn: string;
 begin
-  if not(empty(ifversioninfo)) then
-    if(line='end::') then
-      ifversioninfo:=''
-    else if not(ifversioninfo=progversion) then
+  comm:=ReadCommand(line);
+  par:=CommandParams(line);
+  result:=true;
+  if not(ifmode=0) then
+    if(LowerCase(line)='end::') then
+    begin
+      ifinfo:='';
+      ifmode:=0;
+      result:=true;
+      exit;
+    end
+    else if(not(ifinfo=progversion) and (ifmode=1)) then
+    begin
+      result:=false;
+      exit;
+    end
+    else if((ifinfo=progversion) and (ifmode=2)) then
     begin
       result:=false;
       exit;
     end;
-  comm:=ReadCommand(line);
-  par:=CommandParams(line);
-  result:=true;
   {$IFNDEF CONSOLE}
   Handle:=Application.Handle;
   {$ENDIF}
@@ -487,7 +498,15 @@ begin
     result:=false;
   end
   else if(comm='::ifversion') then
-    ifversioninfo:=par
+  begin
+    ifinfo:=par;
+    ifmode:=1;
+  end
+  else if(comm='::ifnotversion') then
+  begin
+    ifinfo:=par;
+    ifmode:=2;
+  end
   else if(comm='scriptname') then
     LogAdd('Script name: '+par)
   else if(comm='author') then //Write script's author
@@ -759,7 +778,8 @@ begin
   _log.Add('GeoOS Script Log Init.');
   reg:=TRegistry.Create();
   progversion:='';
-  ifversioninfo:='';
+  ifinfo:='';
+  ifmode:=0;
   result:=true;
 end;
 
