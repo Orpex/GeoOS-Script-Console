@@ -47,7 +47,6 @@ interface
     Handle:                              HWND;  // some handle variable for shellapi
     _log:                         TStringList;  // holds information about scripts progress
     progversion:                       string;  // program version in string
-    ifversionactivated:               boolean;  // for ReadAndDoCommands
     ifversioninfo:                     string;  // for ReadAndDoCommands
     reg:                            TRegistry;  // for accessing windows registry
     {$IFNDEF CONSOLE}
@@ -456,12 +455,9 @@ var
   comm,par: string;
   yn: string;
 begin
-  if(ifversionactivated) then
+  if not(empty(ifversioninfo)) then
     if(line='end::') then
-    begin
-      ifversionactivated:=false;
-      ifversioninfo:='';
-    end
+      ifversioninfo:=''
     else if not(ifversioninfo=progversion) then
     begin
       result:=false;
@@ -491,20 +487,17 @@ begin
     result:=false;
   end
   else if(comm='::ifversion') then
-  begin
-    ifversionactivated:=true;
-    ifversioninfo:=par;
-  end
+    ifversioninfo:=par
   else if(comm='scriptname') then
     LogAdd('Script name: '+par)
   else if(comm='author') then //Write script's author
     LogAdd('Script´s Author: '+par)
   else if(comm='log') then //Write a message
-    LogAdd(StringReplace(par,'_',' ', [rfReplaceAll, rfIgnoreCase]))
+    LogAdd(StringReplace(par,'__',' ', [rfReplaceAll, rfIgnoreCase]))
   else if(comm='logenter') then //Write a message, user need to hit enter to continue with program
   begin
     {$IFDEF CONSOLE}
-    write(StringReplace(par,'_',' ', [rfReplaceAll, rfIgnoreCase]));
+    write(StringReplace(par,'__',' ', [rfReplaceAll, rfIgnoreCase]));
     readln;
     {$ELSE}
     LogAdd('Command LogEnter is not supported under forms programs!');
@@ -515,11 +508,11 @@ begin
   else if(comm='promptyesno') then //Ask user to do some command, if 'y' is prompt that command will be used
   begin
     {$IFDEF CONSOLE}
-    write(StringReplace(CommandParams(line,0),'_',' ', [rfReplaceAll, rfIgnoreCase])+' [y/n]: ');
+    write(StringReplace(CommandParams(line,0),'__',' ', [rfReplaceAll, rfIgnoreCase])+' [y/n]: ');
     read(yn);
     readln;
     {$ELSE}
-    yn:=InputBox('GeoOS Script',StringReplace(CommandParams(line,0),'_',' ', [rfReplaceAll, rfIgnoreCase])+' [y/n]: ','n');
+    yn:=InputBox('GeoOS Script',StringReplace(CommandParams(line,0),'__',' ', [rfReplaceAll, rfIgnoreCase])+' [y/n]: ','n');
     {$ENDIF}
     SetLength(yn,1);
     if(yn='y') then
@@ -642,13 +635,13 @@ begin
     begin
       if(GetWinVersion=wvWinVista) then
       begin
-        ShellExecute(Handle,'runas',PWChar(GetLocalDir()+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir()),1);
-        LogAdd('File "'+CommandParams(line,0)+'" executed as admin with "'+StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])+'" parameters.');
+        ShellExecute(Handle,'runas',PWChar(GetLocalDir()+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'__',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir()),1);
+        LogAdd('File "'+CommandParams(line,0)+'" executed as admin with "'+StringReplace(CommandParams(line,1),'__',' ', [rfReplaceAll, rfIgnoreCase])+'" parameters.');
       end
       else
       begin
-        ShellExecute(Handle,'open',PWChar(GetLocalDir()+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir()),1);
-        LogAdd('File "'+CommandParams(line,0)+'" executed with "'+StringReplace(CommandParams(line,1),'_',' ', [rfReplaceAll, rfIgnoreCase])+'" parameters.');
+        ShellExecute(Handle,'open',PWChar(GetLocalDir()+CommandParams(line,0)),PWChar(StringReplace(CommandParams(line,1),'__',' ', [rfReplaceAll, rfIgnoreCase])),PWChar(GetLocalDir()),1);
+        LogAdd('File "'+CommandParams(line,0)+'" executed with "'+StringReplace(CommandParams(line,1),'__',' ', [rfReplaceAll, rfIgnoreCase])+'" parameters.');
       end;
     end
     else if(IsRemote(CommandParams(line,0))) then
@@ -767,7 +760,6 @@ begin
   reg:=TRegistry.Create();
   progversion:='';
   ifversioninfo:='';
-  ifversionactivated:=false;
   result:=true;
 end;
 
