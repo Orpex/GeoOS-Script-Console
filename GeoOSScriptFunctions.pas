@@ -464,7 +464,12 @@ begin
     begin
       ifinfo:='';
       ifmode:=0;
-      result:=true;
+      exit;
+    end
+    else if(LowerCase(line)='::else::') then
+    begin
+      if(ifmode=1) then ifmode:=2
+      else if(ifmode=2) then ifmode:=1;
       exit;
     end
     else if(not(ifinfo=progversion) and (ifmode=1)) then
