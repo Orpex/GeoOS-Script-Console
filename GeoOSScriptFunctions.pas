@@ -1,6 +1,6 @@
 ﻿unit GeoOSScriptFunctions;
 {
-  Version 0.37.5
+  Version 0.37.6
   Copyright 2012 Geodar
   https://github.com/Geodar/GeoOS_Script_Functions
 }
@@ -11,6 +11,9 @@ interface
     {$ELSE}, Dialogs, IdHTTP, IdAntiFreeze, IdComponent, Forms{$ENDIF};
 
   type TWinVersion = (wvUnknown, wvWin95, wvWin98, wvWin98SE, wvWinNT, wvWinME, wvWin2000, wvWinXP, wvWinVista);
+
+const
+  FunctionsVersion = '0.37.6';
 
   type functions = record
     public
@@ -38,6 +41,7 @@ interface
     function CheckAndRunFile(scriptlocation: string): boolean; stdcall;
     function SetProgramVersion(stringversion: string): boolean; stdcall;
     function RunGOSCommand(line: string): boolean; stdcall;
+    function GetFunctionsVersion(): string; stdcall;
     procedure Split(Delimiter: Char; Str: string; ListOfStrings: TStrings);
   end;
 
@@ -821,6 +825,11 @@ begin
   result:=true;
 end;
 
+function functions.GetFunctionsVersion(): string;
+begin
+  result:=FunctionsVersion;
+end;
+
 function functions.init(): boolean;
 begin
   CommandSplit1:=TStringList.Create();
@@ -830,7 +839,7 @@ begin
   idAntiFreeze:=TIdAntiFreeze.Create();
   {$ENDIF}
   _log:=TStringList.Create();
-  _log.Add('GeoOS Script Log Init.');
+  _log.Add('GeoOS Script Log v'+GetFunctionsVersion()+' Init.');
   reg:=TRegistry.Create();
   progversion:='';
   ifinfo:='';

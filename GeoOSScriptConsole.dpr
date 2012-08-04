@@ -116,7 +116,7 @@ begin
       RemoveAndReg('Software\GeoOS-Script\'+gfunctions.CommandParams(line)); //delete previosly version
     repeat
       readln(f,line);
-      gfunctions.ReadAndDoCommands(line);
+      gfunctions.RunGOSCommand(line);
     until EOF(f);
     reg.OpenKey('Software\GeoOS-Script\'+gfunctions.CommandParams(line),true);
     reg.WriteString('Sum',paramsraw);
@@ -243,6 +243,7 @@ begin
   if(GetOptions()) then
     writeln('User options loaded.');
   onlinedirectory:=TStringList.Create();
+  writeln('GeoOS Script version: '+gfunctions.GetFunctionsVersion());
   paramsraw:=gfunctions.LookUpForParams(); //Main initialization for parameters... what to do and everything else
   if(empty(paramsraw)) then //If program didn't find any parameters
   begin
@@ -393,7 +394,7 @@ begin
     //use simple command
     if(SearchForSplitParam('-e')) then
     begin
-      if(gfunctions.ReadAndDoCommands(params[GetInitIndex('e')+1])) then
+      if(gfunctions.RunGOSCommand(params[GetInitIndex('e')+1])) then
         writeln('Executed')
       else
         writeln('Not executed');
@@ -401,7 +402,7 @@ begin
     else
     if(SearchForSplitParam('-c')) then
     begin
-      if(gfunctions.ReadAndDoCommands(params[GetInitIndex('c')+1])) then
+      if(gfunctions.RunGOSCommand(params[GetInitIndex('c')+1])) then
         writeln('Executed')
       else
         writeln('Not executed');
