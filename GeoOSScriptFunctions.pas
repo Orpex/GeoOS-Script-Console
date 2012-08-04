@@ -1,6 +1,6 @@
-unit GeoOSScriptFunctions;
+ï»¿unit GeoOSScriptFunctions;
 {
-  Version 0.34
+  Version 0.37.5
   Copyright 2012 Geodar
   https://github.com/Geodar/GeoOS_Script_Functions
 }
@@ -37,6 +37,7 @@ interface
     function RunFile(scriptlocation: string): boolean; stdcall;
     function CheckAndRunFile(scriptlocation: string): boolean; stdcall;
     function SetProgramVersion(stringversion: string): boolean; stdcall;
+    function RunGOSCommand(line: string): boolean; stdcall;
     procedure Split(Delimiter: Char; Str: string; ListOfStrings: TStrings);
   end;
 
@@ -47,7 +48,7 @@ interface
     Handle:                              HWND;  // some handle variable for shellapi
     _log:                         TStringList;  // holds information about scripts progress
     progversion:                       string;  // program version in string
-    ifinfo:                            string;  // for ReadAndDoCommands
+    ifinfo:                            string;  // for RunGOSCommand
     ifmode:                          smallint;  // GOScript if
     reg:                            TRegistry;  // for accessing windows registry
     {$IFNDEF CONSOLE}
@@ -396,7 +397,7 @@ begin
     LogAdd('-- Install file '+ExtractFileName(scriptlocation)+' --');
     while i<fFile.Count do
     begin
-      ReadAndDoCommands(fFile.Strings[i]);
+      RunGOSCommand(fFile.Strings[i]);
       inc(i);
     end;
     LogAdd('-- End of install file '+ExtractFileName(scriptlocation)+' --');
@@ -414,13 +415,13 @@ begin
   if(IsRemote(scriptlocation)) then
   begin
     LogAdd('Installing file '+ExtractFileName(scriptlocation));
-    ReadAndDoCommands('DownloadFile='+scriptlocation+',tmpscript.gos,overwrite');
+    RunGOSCommand('DownloadFile='+scriptlocation+',tmpscript.gos,overwrite');
     if(FileExists(GetLocalDir()+'tmpscript.gos')) then
     begin
       fFile.LoadFromFile(GetLocalDir()+'tmpscript.gos');
       if(ReadCommand(fFile.Strings[0])='scriptname') then
       begin
-        ReadAndDoCommands('CopyFile=tmpscript.gos,'+CommandParams(fFile.Strings[0])+'.gos,overwrite');
+        RunGOSCommand('CopyFile=tmpscript.gos,'+CommandParams(fFile.Strings[0])+'.gos,overwrite');
         if(FileExists(GetLocalDir()+CommandParams(fFile.Strings[0])+'.gos')) then
         begin
           DeleteFile(GetLocalDir()+'tmpscript.gos');
@@ -451,6 +452,11 @@ begin
   fFile.Free;
 end;
 
+function functions.RunGOSCommand(line: string): boolean;
+begin
+  result:=ReadAndDoCommands(line);
+end;
+
 function functions.ReadAndDoCommands(line: string): boolean; //the most important function!
 var
   comm,par: string;
@@ -469,7 +475,12 @@ begin
     else if(LowerCase(line)='::else::') then
     begin
       if(ifmode=1) then ifmode:=2
-      else if(ifmode=2) then ifmode:=1;
+      else if(ifmode=2) then ifmode:=1
+      else if(ifmode=3) then ifmode:=4
+      else if(ifmode=4) then ifmode:=3
+      else if(ifmode=5) then ifmode:=6
+      else if(ifmode=6) then ifmode:=5;
+      result:=true;
       exit;
     end
     else if(not(ifinfo=progversion) and (ifmode=1)) then
@@ -481,22 +492,41 @@ begin
     begin
       result:=false;
       exit;
+    end
+    else if(not(FileExists(ifinfo)) and (ifmode=3)) then
+    begin
+      result:=false;
+      exit;
+    end
+    else if(FileExists(ifinfo) and (ifmode=4)) then
+    begin
+      result:=false;
+      exit;
+    end
+    else if(not(DirectoryExists(ifinfo)) and (ifmode=5)) then
+    begin
+      result:=false;
+      exit;
+    end
+    else
+    else if(DirectoryExists(ifinfo) and (ifmode=6)) then
+    begin
+      result:=false;
+      exit;
     end;
-  {$IFNDEF CONSOLE}
-  Handle:=Application.Handle;
-  {$ENDIF}
   if(empty(comm)) then // if command is missing, don't do anything
   begin
     LogAdd('Command whitespace');
     result:=false;
   end
-  {$IFDEF CONSOLE}
   else if((comm='closeme') or (comm='terminateme')) then
   begin
+    {$IFDEF CONSOLE}
     TerminateMe();
-    result:=true;
+    {$ELSE}
+    LogAdd('CanÂ´t terminate program! Shutdown it manually!');
+    {$ENDIF}
   end
-  {$ENDIF}
   else if(empty(par)) then // if parameter is missing, don't do anything
   begin
     LogAdd('Parameter whitespace');
@@ -512,10 +542,30 @@ begin
     ifinfo:=par;
     ifmode:=2;
   end
+  else if(comm='::iffileexists') then
+  begin
+    ifinfo:=par;
+    ifmode:=3;
+  end
+  else if(comm='::iffilenotexists') then
+  begin
+    ifinfo:=par;
+    ifmode:=4;
+  end
+  else if((comm='::ifdirexists') or (comm='::ifdirectoryexists')) then
+  begin
+    ifinfo:=par;
+    ifmode:=5;
+  end
+  else if((comm='::ifdirnotexists') or (comm='::ifdirectorynotexists')) then
+  begin
+    ifinfo:=par;
+    ifmode:=6;
+  end
   else if(comm='scriptname') then
     LogAdd('Script name: '+par)
   else if(comm='author') then //Write script's author
-    LogAdd('Script´s Author: '+par)
+    LogAdd('ScriptÂ´s Author: '+par)
   else if(comm='log') then //Write a message
     LogAdd(StringReplace(par,'__',' ', [rfReplaceAll, rfIgnoreCase]))
   else if(comm='logenter') then //Write a message, user need to hit enter to continue with program
@@ -524,11 +574,11 @@ begin
     write(StringReplace(par,'__',' ', [rfReplaceAll, rfIgnoreCase]));
     readln;
     {$ELSE}
-    LogAdd('Command LogEnter is not supported under forms programs!');
+    RunGOSCommand('Log='+par);
     {$ENDIF}
   end
   else if(comm='version') then //Write current script version
-    LogAdd('Script´s Version: '+par)
+    LogAdd('ScriptÂ´s Version: '+par)
   else if(comm='promptyesno') then //Ask user to do some command, if 'y' is prompt that command will be used
   begin
     {$IFDEF CONSOLE}
@@ -539,17 +589,17 @@ begin
     yn:=InputBox('GeoOS Script',StringReplace(CommandParams(line,0),'__',' ', [rfReplaceAll, rfIgnoreCase])+' [y/n]: ','n');
     {$ENDIF}
     SetLength(yn,1);
-    if(yn='y') then
+    if(LowerCase(yn)='y') then
     begin
       if not(empty(CommandParams(line,1,1))) then //support for Execute
       begin
         LogAdd('You prompt: '+CommandParams(line,1)+'='+CommandParams(line,0,1)+','+CommandParams(line,1,1));
-        ReadAndDoCommands(CommandParams(line,1)+'='+CommandParams(line,0,1)+','+CommandParams(line,1,1));
+        RunGOSCommand(CommandParams(line,1)+'='+CommandParams(line,0,1)+','+CommandParams(line,1,1));
       end
       else
       begin
         LogAdd('You prompt: '+CommandParams(line,1)+'='+CommandParams(line,0,1));
-        ReadAndDoCommands(CommandParams(line,1)+'='+CommandParams(line,0,1));
+        RunGOSCommand(CommandParams(line,1)+'='+CommandParams(line,0,1));
       end;
     end
     else
@@ -635,7 +685,7 @@ begin
           yn:=InputBox('GeoOS Script','File "'+CommandParams(line,1)+'" already exists, overwrite? [y/n]: ','n');
           {$ENDIF}
           SetLength(yn,1);
-          if(yn='y') then // if user type "y" it means "yes"
+          if(LowerCase(yn)='y') then // if user type "y" it means "yes"
           begin
             CopyFile(PWChar(GetLocalDir()+CommandParams(line,0)),PWChar(GetLocalDir()+CommandParams(line,1)),false);
             LogAdd('File "'+GetLocalDir()+CommandParams(line,0)+'" copied to "'+GetLocalDir()+CommandParams(line,1)+'".');
@@ -651,7 +701,7 @@ begin
       end;
     end
     else
-      LogAdd('File "'+GetLocalDir()+CommandParams(line,0)+'" copied to "'+GetLocalDir()+CommandParams(line,1)+'" failed! File "'+CommandParams(line,0)+'" doesn´t exists!');
+      LogAdd('File "'+GetLocalDir()+CommandParams(line,0)+'" copied to "'+GetLocalDir()+CommandParams(line,1)+'" failed! File "'+CommandParams(line,0)+'" doesnÂ´t exists!');
   end
   else if(comm='execute') then
   begin
@@ -673,7 +723,7 @@ begin
       ShellExecute(Handle,'open',PWChar(StringReplace(line,ReadCommand(line,false)+'=','', [rfReplaceAll, rfIgnoreCase])),nil,PWChar(GetLocalDir()),1);
     end
     else
-      LogAdd('File "'+CommandParams(line,0)+'" doesn´t exists!');
+      LogAdd('File "'+CommandParams(line,0)+'" doesnÂ´t exists!');
   end
   else if(comm='downloadfile') then
   begin
@@ -694,7 +744,7 @@ begin
         yn:=InputBox('GeoOS Script','File "'+CommandParams(line,1)+'" already exists, overwrite? [y/n]: ','n');
         {$ENDIF}
         SetLength(yn,1);
-        if(yn='y') then // if user type "y" it means "yes"
+        if(LowerCase(yn)='y') then // if user type "y" it means "yes"
         begin
           LogAdd('Downloading "'+CommandParams(line,0)+'" to '+GetLocalDir()+CommandParams(line,1)+'" ...');
           result:=CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
@@ -709,7 +759,7 @@ begin
     if(result) then
       LogAdd('OK')
     else
-      LogAdd('Download not completed, maybe another process is using this file or remote file doesn´t exists!');
+      LogAdd('Download not completed, maybe another process is using this file or remote file doesnÂ´t exists!');
   end
   else if(comm='zipextract') then
   begin
@@ -785,6 +835,9 @@ begin
   progversion:='';
   ifinfo:='';
   ifmode:=0;
+  {$IFNDEF CONSOLE}
+  Handle:=Application.Handle;
+  {$ENDIF}
   result:=true;
 end;
 
