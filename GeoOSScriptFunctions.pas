@@ -1,6 +1,6 @@
 ﻿unit GeoOSScriptFunctions;
 {
-  Version 0.37.6
+  Version 0.37.7
   Copyright 2012 Geodar
   https://github.com/Geodar/GeoOS_Script_Functions
 }
@@ -13,10 +13,11 @@ interface
   type TWinVersion = (wvUnknown, wvWin95, wvWin98, wvWin98SE, wvWinNT, wvWinME, wvWin2000, wvWinXP, wvWinVista);
 
 const
-  FunctionsVersion = '0.37.6';
+  FunctionsVersion = '0.37.7';
 
   type functions = record
     public
+    function RunGOSCommand(line: string): boolean; stdcall;
     function GetWinVersion: TWinVersion; stdcall;
     function FreeAll(): boolean; stdcall;
     function DownloadFile(const url: string; const destinationFileName: string): boolean; stdcall;
@@ -40,7 +41,6 @@ const
     function RunFile(scriptlocation: string): boolean; stdcall;
     function CheckAndRunFile(scriptlocation: string): boolean; stdcall;
     function SetProgramVersion(stringversion: string): boolean; stdcall;
-    function RunGOSCommand(line: string): boolean; stdcall;
     function GetFunctionsVersion(): string; stdcall;
     procedure Split(Delimiter: Char; Str: string; ListOfStrings: TStrings);
   end;
@@ -210,6 +210,7 @@ begin
        On E: Exception do
         begin
           Result := FALSE;
+          LogAdd('Could not download file, error 404!');
         end;
     end;
     if(fIDHTTP[availabledl].Response.ResponseCode=200) then
@@ -224,6 +225,7 @@ begin
         On E: Exception do
         begin
           Result := FALSE;
+          LogAdd('Could not download file, not response code 200!');
         end;
       end;
     end;
@@ -725,6 +727,7 @@ begin
     else if(IsRemote(CommandParams(line,0))) then
     begin
       ShellExecute(Handle,'open',PWChar(StringReplace(line,ReadCommand(line,false)+'=','', [rfReplaceAll, rfIgnoreCase])),nil,PWChar(GetLocalDir()),1);
+      LogAdd('Opening webpage "'+StringReplace(line,ReadCommand(line,false)+'=','', [rfReplaceAll, rfIgnoreCase])+'" with default user browser.');
     end
     else
       LogAdd('File "'+CommandParams(line,0)+'" doesn´t exists!');
