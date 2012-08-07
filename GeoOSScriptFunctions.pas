@@ -1,6 +1,6 @@
 ﻿unit GeoOSScriptFunctions;
 {
-  Version 0.37.7
+  Version 0.38
   Copyright 2012 Geodar
   https://github.com/Geodar/GeoOS_Script_Functions
 }
@@ -13,7 +13,7 @@ interface
   type TWinVersion = (wvUnknown, wvWin95, wvWin98, wvWin98SE, wvWinNT, wvWinME, wvWin2000, wvWinXP, wvWinVista);
 
 const
-  FunctionsVersion = '0.37.7';
+  FunctionsVersion = '0.38';
 
   type functions = record
     public
@@ -400,13 +400,13 @@ begin
   if(FileExists(scriptlocation)) then
   begin
     fFile.LoadFromFile(scriptlocation);
-    LogAdd('-- Install file '+ExtractFileName(scriptlocation)+' --');
+    LogAdd('-- Run file "'+ExtractFileName(scriptlocation)+'" --');
     while i<fFile.Count do
     begin
       RunGOSCommand(fFile.Strings[i]);
       inc(i);
     end;
-    LogAdd('-- End of install file '+ExtractFileName(scriptlocation)+' --');
+    LogAdd('-- Run file "'+ExtractFileName(scriptlocation)+'" end --');
     result:=true;
   end;
   fFile.Free;
@@ -434,24 +434,24 @@ begin
           result:=RunFile(GetLocalDir()+CommandParams(fFile.Strings[0])+'.gos');
         end
         else
-          LogAdd('Copy file failed, installation aborded');
+          LogAdd('Copy file failed, run file aborded');
       end
       else
-        LogAdd('Script Name failed, installation aborded');
+        LogAdd('Script Name failed, run file aborded');
     end
     else
-      LogAdd('Download failed, installation aborded');
+      LogAdd('Download failed, run file aborded');
   end
   else
   begin
     if(FileExists(GetLocalDir()+scriptlocation)) then
     begin
-      LogAdd('Installing file '+ExtractFileName(scriptlocation));
+      LogAdd('Running file '+ExtractFileName(scriptlocation));
       result:=RunFile(GetLocalDir()+scriptlocation);
     end
     else
     begin
-      LogAdd('Installing file '+ExtractFileName(scriptlocation));
+      LogAdd('Running file '+ExtractFileName(scriptlocation));
       result:=RunFile(scriptlocation);
     end;
   end;
@@ -485,7 +485,9 @@ begin
       else if(ifmode=3) then ifmode:=4
       else if(ifmode=4) then ifmode:=3
       else if(ifmode=5) then ifmode:=6
-      else if(ifmode=6) then ifmode:=5;
+      else if(ifmode=6) then ifmode:=5
+      else if(ifmode=7) then ifmode:=8
+      else if(ifmode=8) then ifmode:=7;
       result:=true;
       exit;
     end
@@ -514,8 +516,17 @@ begin
       result:=false;
       exit;
     end
-    else
     else if(DirectoryExists(ifinfo) and (ifmode=6)) then
+    begin
+      result:=false;
+      exit;
+    end
+    else if(not(AnsiContainsStr(ifinfo,progversion)) and (ifmode=7)) then
+    begin
+      result:=false;
+      exit;
+    end
+    else if(AnsiContainsStr(ifinfo,progversion) and (ifmode=8)) then
     begin
       result:=false;
       exit;
@@ -567,6 +578,16 @@ begin
   begin
     ifinfo:=par;
     ifmode:=6;
+  end
+  else if((comm='::ifversioncontains') or (comm='::ifversioncont')) then
+  begin
+    ifinfo:=par;
+    ifmode:=7;
+  end
+  else if((comm='::ifversionnotcontains') or (comm='::ifversionnotcont')) then
+  begin
+    ifinfo:=par;
+    ifmode:=8;
   end
   else if(comm='scriptname') then
     LogAdd('Script name: '+par)
@@ -646,7 +667,7 @@ begin
       reg.RootKey:=HKEY_USERS
     else if(CommandParams(line,0)='HKEY_CURRENT_CONFIG') then
       reg.RootKey:=HKEY_CURRENT_CONFIG
-    else //if(CommandParams(line,0)='HKEY_CURRENT_USER') then
+    else //if(CommandParams(line,0)='HKEY_CURRENT_USER') then || use HKEY_CURRENT_USER as default
       reg.RootKey:=HKEY_CURRENT_USER;
     if((reg.KeyExists(CommandParams(line,1)) or not(empty(CommandParams(line,1)))) and not(empty(CommandParams(line,2))) and not(empty(CommandParams(line,3))) and not(empty(CommandParams(line,4)))) then
     begin
