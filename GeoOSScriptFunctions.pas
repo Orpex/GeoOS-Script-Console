@@ -1,6 +1,6 @@
 ﻿unit GeoOSScriptFunctions;
 {
-  Version 0.38
+  Version 0.40
   Copyright 2012 Geodar
   https://github.com/Geodar/GeoOS_Script_Functions
 }
@@ -13,7 +13,17 @@ interface
   type TWinVersion = (wvUnknown, wvWin95, wvWin98, wvWin98SE, wvWinNT, wvWinME, wvWin2000, wvWinXP, wvWinVista);
 
 const
-  FunctionsVersion = '0.38';
+  FunctionsVersion = '0.40';
+
+const //admin rights constants
+  SECURITY_NT_AUTHORITY: TSIDIdentifierAuthority = (Value: (0, 0, 0, 0, 0, 5));
+  SECURITY_BUILTIN_DOMAIN_RID = $00000020;
+  DOMAIN_ALIAS_RID_ADMINS     = $00000220;
+  DOMAIN_ALIAS_RID_USERS      = $00000221;
+  DOMAIN_ALIAS_RID_GUESTS     = $00000222;
+  DOMAIN_ALIAS_RID_POWER_USERS= $00000223;
+
+  function CheckTokenMembership(TokenHandle: THandle; SidToCheck: PSID; var IsMember: BOOL): BOOL; stdcall; external advapi32;
 
   type functions = record
     public
@@ -42,6 +52,7 @@ const
     function CheckAndRunFile(scriptlocation: string): boolean; stdcall;
     function SetProgramVersion(stringversion: string): boolean; stdcall;
     function GetFunctionsVersion(): string; stdcall;
+    function IsUserAdmin(): boolean; stdcall;
     procedure Split(Delimiter: Char; Str: string; ListOfStrings: TStrings);
   end;
 
@@ -234,6 +245,27 @@ begin
   end;
 end;
 {$ENDIF}
+
+function functions.IsUserAdmin(): boolean;
+var
+  b: bool;
+  AdministratorsGroup: PSID;
+begin
+  b:=AllocateAndInitializeSid(
+      SECURITY_NT_AUTHORITY,
+      2, //2 sub-authorities
+      SECURITY_BUILTIN_DOMAIN_RID,  //sub-authority 0
+      DOMAIN_ALIAS_RID_ADMINS,      //sub-authority 1
+      0, 0, 0, 0, 0, 0,             //sub-authorities 2-7 not passed
+      AdministratorsGroup);
+  if(b) then
+  begin
+    if not(CheckTokenMembership(0, AdministratorsGroup, b)) then
+      b:=False;
+      FreeSid(AdministratorsGroup);
+  end;
+  result:=b;
+end;
 
 function functions.GetParams(): string; //gets all parameters
 var
