@@ -1,6 +1,6 @@
 ﻿unit GeoOSScriptFunctions;
 {
-  Version 0.40
+  Version 0.41
   Copyright 2012 Geodar
   https://github.com/Geodar/GeoOS_Script_Functions
 }
@@ -13,15 +13,15 @@ interface
   type TWinVersion = (wvUnknown, wvWin95, wvWin98, wvWin98SE, wvWinNT, wvWinME, wvWin2000, wvWinXP, wvWinVista);
 
 const
-  FunctionsVersion = '0.40';
+  FunctionsVersion = '0.41';
 
 const //admin rights constants
-  SECURITY_NT_AUTHORITY: TSIDIdentifierAuthority = (Value: (0, 0, 0, 0, 0, 5));
-  SECURITY_BUILTIN_DOMAIN_RID = $00000020;
-  DOMAIN_ALIAS_RID_ADMINS     = $00000220;
-  DOMAIN_ALIAS_RID_USERS      = $00000221;
-  DOMAIN_ALIAS_RID_GUESTS     = $00000222;
-  DOMAIN_ALIAS_RID_POWER_USERS= $00000223;
+  SECURITY_NT_AUTHORITY: TSIDIdentifierAuthority=(Value:(0,0,0,0,0,5));
+  SECURITY_BUILTIN_DOMAIN_RID  = $00000020;
+  DOMAIN_ALIAS_RID_ADMINS      = $00000220;
+  DOMAIN_ALIAS_RID_USERS       = $00000221;
+  DOMAIN_ALIAS_RID_GUESTS      = $00000222;
+  DOMAIN_ALIAS_RID_POWER_USERS = $00000223;
 
   function CheckTokenMembership(TokenHandle: THandle; SidToCheck: PSID; var IsMember: BOOL): BOOL; stdcall; external advapi32;
 
@@ -48,6 +48,7 @@ const //admin rights constants
     function GetLocalDir(): string; stdcall;
     function CheckVersionInOnlineStore(programname: string; currversion: string; beta: boolean): string; stdcall;
     function IsRemote(param: string): boolean; stdcall;
+    function GetPreqFromRemote(param: string): string; stdcall;
     function RunFile(scriptlocation: string): boolean; stdcall;
     function CheckAndRunFile(scriptlocation: string): boolean; stdcall;
     function SetProgramVersion(stringversion: string): boolean; stdcall;
@@ -88,8 +89,10 @@ end;
 
 function functions.empty(str: string): boolean;
 begin
-  if(Length(str)=0) then result:=true
-  else result:=false;
+  if(Length(str)=0) then
+    result:=true
+  else
+    result:=false;
 end;
 
 function functions.GetLocalDir(): string;   //same function as GetLocalPath()
@@ -100,41 +103,42 @@ end;
 function functions.GetWinVersion: TWinVersion; //taken from GeoOS_Main.exe
  var
     osVerInfo: TOSVersionInfo;
-    majorVersion, minorVersion: Integer;
+    majorVersion: integer;
+    minorVersion: integer;
  begin
-    Result := wvUnknown;
-    osVerInfo.dwOSVersionInfoSize := SizeOf(TOSVersionInfo) ;
-    if GetVersionEx(osVerInfo) then
+    result:=wvUnknown;
+    osVerInfo.dwOSVersionInfoSize:=SizeOf(TOSVersionInfo);
+    if(GetVersionEx(osVerInfo)) then
     begin
-      minorVersion := osVerInfo.dwMinorVersion;
-      majorVersion := osVerInfo.dwMajorVersion;
+      minorVersion:=osVerInfo.dwMinorVersion;
+      majorVersion:=osVerInfo.dwMajorVersion;
       case osVerInfo.dwPlatformId of
         VER_PLATFORM_WIN32_NT:
         begin
-          if majorVersion <= 4 then
-            Result := wvWinNT
-          else if (majorVersion = 5) and (minorVersion = 0) then
-            Result := wvWin2000
-          else if (majorVersion = 5) and (minorVersion = 1) then
-            Result := wvWinXP
-          else if (majorVersion = 6) then
-            Result := wvWinVista;
+          if(majorVersion<=4) then
+            result:=wvWinNT
+          else if((majorVersion=5) and (minorVersion=0)) then
+            result:=wvWin2000
+          else if((majorVersion=5) and (minorVersion=1)) then
+            result:=wvWinXP
+          else if(majorVersion=6) then
+            result:=wvWinVista;
         end;
         VER_PLATFORM_WIN32_WINDOWS:
         begin
-          if (majorVersion = 4) and (minorVersion = 0) then
-            Result := wvWin95
-          else if (majorVersion = 4) and (minorVersion = 10) then
+          if((majorVersion=4) and (minorVersion=0)) then
+            result:=wvWin95
+          else if((majorVersion=4) and (minorVersion=10)) then
           begin
-            if osVerInfo.szCSDVersion[1] = 'A' then
-              Result := wvWin98SE
+            if(osVerInfo.szCSDVersion[1]='A') then
+              result:=wvWin98SE
             else
-              Result := wvWin98;
+              result:=wvWin98;
           end
-          else if (majorVersion = 4) and (minorVersion = 90) then
-            Result := wvWinME
+          else if((majorVersion=4) and (minorVersion=90)) then
+            result:=wvWinME
           else
-            Result := wvUnknown;
+            result:=wvUnknown;
         end;
       end;
     end;
@@ -162,7 +166,7 @@ var
   buffer: array[1..1024] of byte;
   bytesRead: DWORD;
 begin
-  result:=False;
+  result:=false;
   hInet:=InternetOpen(PChar('GeoOSScript Mozilla/4.0'),INTERNET_OPEN_TYPE_DIRECT,nil,nil,0);
   hFile:=InternetOpenURL(hInet,PChar(url),nil,0,INTERNET_FLAG_NO_CACHE_WRITE+INTERNET_FLAG_ASYNC+INTERNET_FLAG_RELOAD,0);
   if(FileExists(destinationFileName)) then
@@ -202,7 +206,7 @@ function functions.DownloadFile(const url: string; const destinationFileName: st
 var
   availabledl: smallint;
 begin
-  result := FALSE;
+  result:=false;
   availabledl:=GetDLFreeSlot();
   if not(availabledl=0) then
   begin
@@ -213,14 +217,13 @@ begin
     fIDHTTP[availabledl].Request.Connection:='Keep-Alive';
     fIDHTTP[availabledl].Request.ProxyConnection:='Keep-Alive';
     fIDHTTP[availabledl].Request.CacheControl:='no-cache';
-
-    Stream[availabledl] := TMemoryStream.Create;
+    Stream[availabledl]:=TMemoryStream.Create();
     try
       fIDHTTP[availabledl].Head(url);
     except
        On E: Exception do
         begin
-          Result := FALSE;
+          Result:=FALSE;
           LogAdd('Could not download file, error 404!');
         end;
     end;
@@ -231,15 +234,21 @@ begin
         if FileExists(destinationFileName) then
           DeleteFile(PWideChar(destinationFileName));
         Stream[availabledl].SaveToFile(destinationFileName);
-        result := TRUE;
+        result:=TRUE;
       except
         On E: Exception do
         begin
-          Result := FALSE;
+          Result:=FALSE;
           LogAdd('Could not download file, not response code 200!');
         end;
       end;
     end;
+    if(FileExists(destinationFileName)) then
+      LogAdd('OK')
+    else if not(IsUserAdmin()) then
+      LogAdd('Can´t save file! Suggestion: Run this application as Administrator')
+    else if not(Result) then
+      LogAdd('Uknown error while downloading file!');
     FreeAndNil(Stream[availabledl]);
     FreeAndNil(fIDHTTP[availabledl]);
   end;
@@ -419,6 +428,14 @@ begin
   else if(MidStr(param,1,8)='https://') then result:=true  //accepting https:// as remote
   else if(MidStr(param,1,6)='ftp://') then result:=true    //accepting ftp:// as remote
   else result:=false; //everything else is in local computer
+end;
+
+function functions.GetPreqFromRemote(param: string): string;
+begin
+  if(MidStr(param,1,7)='http://') then result:='http://'
+  else if(MidStr(param,1,8)='https://') then result:='https://'
+  else if(MidStr(param,1,6)='ftp://') then result:='ftp://'
+  else result:='';
 end;
 
 function functions.RunFile(scriptlocation: string): boolean; //run GeoOS script file
@@ -816,10 +833,6 @@ begin
       LogAdd('Downloading "'+CommandParams(line,0)+'" to "'+GetLocalDir()+CommandParams(line,1)+'" ...');
       result:=CheckDirAndDownloadFile(CommandParams(line,0),CommandParams(line,1));
     end;
-    if(result) then
-      LogAdd('OK')
-    else
-      LogAdd('Download not completed, maybe another process is using this file or remote file doesn´t exists!');
   end
   else if(comm='zipextract') then
   begin
@@ -830,6 +843,10 @@ begin
     end
     else
       LogAdd('File "'+par+'" is not valid zip file!');
+  end
+  else if(comm='makezipfile') then
+  begin
+    //todo
   end
   else if(comm='zipextractto') then
   begin
