@@ -1,6 +1,6 @@
-﻿unit GeoOSScriptFunctions;
+unit GeoOSScriptFunctions;
 {
-  Version 0.41
+  Version 0.41.1
   Copyright 2012 Geodar
   https://github.com/Geodar/GeoOS_Script_Functions
 }
@@ -13,7 +13,7 @@ interface
   type TWinVersion = (wvUnknown, wvWin95, wvWin98, wvWin98SE, wvWinNT, wvWinME, wvWin2000, wvWinXP, wvWinVista);
 
 const
-  FunctionsVersion = '0.41';
+  FunctionsVersion = '0.41.1';
 
 const //admin rights constants
   SECURITY_NT_AUTHORITY: TSIDIdentifierAuthority=(Value:(0,0,0,0,0,5));
@@ -49,6 +49,7 @@ const //admin rights constants
     function CheckVersionInOnlineStore(programname: string; currversion: string; beta: boolean): string; stdcall;
     function IsRemote(param: string): boolean; stdcall;
     function GetPreqFromRemote(param: string): string; stdcall;
+    function NotHttps(param: string): boolean; stdcall;
     function RunFile(scriptlocation: string): boolean; stdcall;
     function CheckAndRunFile(scriptlocation: string): boolean; stdcall;
     function SetProgramVersion(stringversion: string): boolean; stdcall;
@@ -80,7 +81,8 @@ uses Unit1;
 {$ENDIF}
 
 procedure functions.Split(Delimiter: Char; Str: string; ListOfStrings: TStrings); // Split what we need
-//thanks to RRUZ - http://stackoverflow.com/questions/2625707/delphi-how-do-i-split-a-string-into-an-array-of-strings-based-on-a-delimiter
+// thanks to RRUZ @ StackOverFlow.com
+// http://stackoverflow.com/questions/2625707/delphi-how-do-i-split-a-string-into-an-array-of-strings-based-on-a-delimiter
 begin
   ListOfStrings.Clear;
   ListOfStrings.Delimiter     := Delimiter;
@@ -95,7 +97,7 @@ begin
     result:=false;
 end;
 
-function functions.GetLocalDir(): string;   //same function as GetLocalPath()
+function functions.GetLocalDir(): string;
 begin
   result:=ExtractFilePath(ParamStr(0));
 end;
@@ -146,7 +148,7 @@ function functions.GetWinVersion: TWinVersion; //taken from GeoOS_Main.exe
 
 function functions.FreeAll(): boolean;
 begin
-  CommandSplit1.Free;   // release memory from using main split
+  CommandSplit1.Free;   // release memory from using major split
   CommandSplit2.Free;   // release memory from using minor split
   ZipHandler.Free;      // release memory from using zip handler
   _log.Free;            // release memory from logs
@@ -211,8 +213,8 @@ begin
   if not(availabledl=0) then
   begin
     fIDHTTP[availabledl]:=TIDHTTP.Create();
-    fIDHTTP[availabledl].HandleRedirects:=TRUE;
-    fIDHTTP[availabledl].AllowCookies:=FALSE;
+    fIDHTTP[availabledl].HandleRedirects:=true;
+    fIDHTTP[availabledl].AllowCookies:=false;
     fIDHTTP[availabledl].Request.UserAgent:='GeoOSScript Mozilla/4.0';
     fIDHTTP[availabledl].Request.Connection:='Keep-Alive';
     fIDHTTP[availabledl].Request.ProxyConnection:='Keep-Alive';
@@ -223,7 +225,7 @@ begin
     except
        On E: Exception do
         begin
-          Result:=FALSE;
+          result:=false;
           LogAdd('Could not download file, error 404!');
         end;
     end;
@@ -234,11 +236,11 @@ begin
         if FileExists(destinationFileName) then
           DeleteFile(PWideChar(destinationFileName));
         Stream[availabledl].SaveToFile(destinationFileName);
-        result:=TRUE;
+        result:=true;
       except
         On E: Exception do
         begin
-          Result:=FALSE;
+          result:=false;
           LogAdd('Could not download file, not response code 200!');
         end;
       end;
@@ -246,9 +248,9 @@ begin
     if(FileExists(destinationFileName)) then
       LogAdd('OK')
     else if not(IsUserAdmin()) then
-      LogAdd('Can´t save file! Suggestion: Run this application as Administrator')
-    else if not(Result) then
-      LogAdd('Uknown error while downloading file!');
+      LogAdd('Can´t save file! Suggestion: Run this application as Administrator!')
+    else if not(result) then
+      LogAdd('Unknown error while downloading file!');
     FreeAndNil(Stream[availabledl]);
     FreeAndNil(fIDHTTP[availabledl]);
   end;
@@ -270,7 +272,7 @@ begin
   if(b) then
   begin
     if not(CheckTokenMembership(0, AdministratorsGroup, b)) then
-      b:=False;
+      b:=false;
       FreeSid(AdministratorsGroup);
   end;
   result:=b;
@@ -313,7 +315,7 @@ begin
   begin
     Split('=',str,CommandSplit1);
     if not(CommandSplit1.Count=0) then
-      result:=LowerCase(CommandSplit1.Strings[0])
+      result:=CommandSplit1.Strings[0]
     else
       result:='';
   end;
@@ -436,6 +438,12 @@ begin
   else if(MidStr(param,1,8)='https://') then result:='https://'
   else if(MidStr(param,1,6)='ftp://') then result:='ftp://'
   else result:='';
+end;
+
+function functions.NotHttps(param: string): boolean;
+begin
+  if(GetPreqFromRemote(param)='https://') then result:=false
+  else result:=true;
 end;
 
 function functions.RunFile(scriptlocation: string): boolean; //run GeoOS script file
