@@ -1,19 +1,19 @@
-unit GeoOSScriptFunctions;
+﻿unit GeoOSScriptFunctions;
 {
-  Version 0.41.1
-  Copyright 2012 Geodar
+  Version 0.46.4
+  Copyright 2012-2015 Geodar
   https://github.com/Geodar/GeoOS_Script_Functions
 }
 interface
   uses
-    Windows, SysUtils, Classes, shellapi, Zip, StrUtils, Registry
-    {$IFDEF CONSOLE}, WinINet
-    {$ELSE}, Dialogs, IdHTTP, IdAntiFreeze, IdComponent, Forms{$ENDIF};
+    Windows, SysUtils, Classes, shellapi, Zip, StrUtils, Registry,
+    WinINet, Tlhelp32
+    {$IFNDEF CONSOLE}, Dialogs, IdHTTP, IdAntiFreeze, IdComponent, Forms{$ENDIF};
 
   type TWinVersion = (wvUnknown, wvWin95, wvWin98, wvWin98SE, wvWinNT, wvWinME, wvWin2000, wvWinXP, wvWinVista);
 
 const
-  FunctionsVersion = '0.41.1';
+  FunctionsVersion = '0.46.4';
 
 const //admin rights constants
   SECURITY_NT_AUTHORITY: TSIDIdentifierAuthority=(Value:(0,0,0,0,0,5));
@@ -27,10 +27,19 @@ const //admin rights constants
 
   type functions = record
     public
+    function KillTask(ExeFileName: string): integer; stdcall;
     function RunGOSCommand(line: string): boolean; stdcall;
     function GetWinVersion: TWinVersion; stdcall;
     function FreeAll(): boolean; stdcall;
+    {$IFNDEF Console}
+    function DownloadFile(const url: string; const destinationFileName: string): boolean; overload; stdcall;
+    function DownloadFile(const url: string; const destinationFileName: string; surpressmsg: boolean): boolean; overload; stdcall;
+    function DownloadFileLegacy(const url: string; const destinationFileName: string): boolean; stdcall;
+    function DownloadFileGet(const url: string; const destinationFileName: string): boolean; stdcall;
+    function DownloadFileToStream(const url: string): TMemoryStream; stdcall;
+    {$ELSE}
     function DownloadFile(const url: string; const destinationFileName: string): boolean; stdcall;
+    {$ENDIF}
     function GetParams(): string; stdcall;
     function LookUpForParams(): string; stdcall;
     function ReadCommand(str: string): string; overload; stdcall;
@@ -46,7 +55,8 @@ const //admin rights constants
     function init(): boolean; stdcall;
     function empty(str: string): boolean; stdcall;
     function GetLocalDir(): string; stdcall;
-    function CheckVersionInOnlineStore(programname: string; currversion: string; beta: boolean): string; stdcall;
+    function CheckVersionInOnlineStore(programname: string; currversion: string): string; stdcall;
+    function GetUpdateText(programname: string): string; stdcall;
     function IsRemote(param: string): boolean; stdcall;
     function GetPreqFromRemote(param: string): string; stdcall;
     function NotHttps(param: string): boolean; stdcall;
@@ -55,7 +65,7 @@ const //admin rights constants
     function SetProgramVersion(stringversion: string): boolean; stdcall;
     function GetFunctionsVersion(): string; stdcall;
     function IsUserAdmin(): boolean; stdcall;
-    procedure Split(Delimiter: Char; Str: string; ListOfStrings: TStrings);
+    procedure Split(Delimiter: string; Str: string; OutputList: TStrings);
   end;
 
   var
@@ -69,8 +79,8 @@ const //admin rights constants
     ifmode:                          smallint;  // GOScript if
     reg:                            TRegistry;  // for accessing windows registry
     {$IFNDEF CONSOLE}
-    fIDHTTP:          array [1..5] of TIDHTTP;  // max support for 5 downloads at time
-    Stream:     array [1..5] of TMemoryStream;  // downloading streams
+    fIDHTTP:         array [1..10] of TIDHTTP;  // max support for 10 downloads at time
+    Stream:    array [1..10] of TMemoryStream;  // downloading streams
     idAntiFreeze:               TIdAntiFreeze;  // stop freezing application while downloading a file
     {$ENDIF}
 
@@ -80,13 +90,37 @@ implementation
 uses Unit1;
 {$ENDIF}
 
-procedure functions.Split(Delimiter: Char; Str: string; ListOfStrings: TStrings); // Split what we need
-// thanks to RRUZ @ StackOverFlow.com
-// http://stackoverflow.com/questions/2625707/delphi-how-do-i-split-a-string-into-an-array-of-strings-based-on-a-delimiter
+procedure functions.Split(Delimiter: string; Str: string; OutputList: TStrings);
 begin
-  ListOfStrings.Clear;
-  ListOfStrings.Delimiter     := Delimiter;
-  ListOfStrings.DelimitedText := Str;
+  OutputList.LineBreak:=Delimiter;
+  OutputList.Text:=Str;
+end;
+
+function functions.KillTask(ExeFileName: string): integer;
+const
+  PROCESS_TERMINATE = $0001;
+var
+  ContinueLoop: BOOL;
+  FSnapshotHandle: THandle;
+  FProcessEntry32: TProcessEntry32;
+begin
+  Result := 0;
+  FSnapshotHandle := CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+  FProcessEntry32.dwSize := SizeOf(FProcessEntry32);
+  ContinueLoop := Process32First(FSnapshotHandle, FProcessEntry32);
+  while Integer(ContinueLoop) <> 0 do
+  begin
+    if ((UpperCase(ExtractFileName(FProcessEntry32.szExeFile)) =
+      UpperCase(ExeFileName)) or (UpperCase(FProcessEntry32.szExeFile) =
+      UpperCase(ExeFileName))) then
+      Result := Integer(TerminateProcess(
+                        OpenProcess(PROCESS_TERMINATE,
+                                    BOOL(0),
+                                    FProcessEntry32.th32ProcessID),
+                                    0));
+     ContinueLoop := Process32Next(FSnapshotHandle, FProcessEntry32);
+  end;
+  CloseHandle(FSnapshotHandle);
 end;
 
 function functions.empty(str: string): boolean;
@@ -100,6 +134,51 @@ end;
 function functions.GetLocalDir(): string;
 begin
   result:=ExtractFilePath(ParamStr(0));
+end;
+
+function functions.CheckVersionInOnlineStore(programname: string; currversion: string): string;
+var
+  fFile: TStringList;
+  i: integer;
+begin
+  fFile:=TStringList.Create();
+  i:=0;
+  result:='0';
+  if(DownloadFile('http://geodar.hys.cz/geoos/'+programname+'.gos',GetLocalDir()+programname+'.gos')) then
+  begin
+    fFile.LoadFromFile(GetLocalDir()+programname+'.gos');
+    DeleteFile(GetLocalDir()+programname+'.gos');
+    while ((i<fFile.Count) and (result='0')) do
+    begin
+      if(ReadCommand(fFile.Strings[i])='version') then
+        if not(CommandParams(fFile.Strings[i])=currversion) then
+          result:=CommandParams(fFile.Strings[i]);
+      inc(i);
+    end;
+  end;
+  fFile.Free;
+end;
+
+function functions.GetUpdateText(programname: string): string;
+var
+  fFile: TStringList;
+  i: integer;
+begin
+  fFile:=TStringList.Create();
+  i:=0;
+  result:='';
+  if(DownloadFile('http://geodar.hys.cz/geoos/'+programname+'.gos',GetLocalDir()+programname+'.gos')) then
+  begin
+    fFile.LoadFromFile(GetLocalDir()+programname+'.gos');
+    DeleteFile(GetLocalDir()+programname+'.gos');
+    while ((i<fFile.Count) and (result='')) do
+    begin
+      if(ReadCommand(fFile.Strings[i])='updatetext') then
+        result:=CommandParams(fFile.Strings[i]);
+      inc(i);
+    end;
+  end;
+  fFile.Free;
 end;
 
 function functions.GetWinVersion: TWinVersion; //taken from GeoOS_Main.exe
@@ -191,11 +270,41 @@ begin
 end;
 {$ELSE}
 
+function functions.DownloadFileLegacy(const url: string; const destinationFileName: string): boolean;
+var
+  hInet: HINTERNET;
+  hFile: HINTERNET;
+  localFile: File;
+  buffer: array[1..1024] of byte;
+  bytesRead: DWORD;
+begin
+  result:=false;
+  hInet:=InternetOpen(PChar('GeoOSScript Mozilla/4.0'),INTERNET_OPEN_TYPE_DIRECT,nil,nil,0);
+  hFile:=InternetOpenURL(hInet,PChar(url),nil,0,INTERNET_FLAG_NO_CACHE_WRITE+INTERNET_FLAG_ASYNC+INTERNET_FLAG_RELOAD,0);
+  if(FileExists(destinationFileName)) then
+  begin
+    DeleteFile(PWChar(destinationFileName));
+  end;
+  if Assigned(hFile) then
+  begin
+    AssignFile(localFile,destinationFileName);
+    Rewrite(localFile,1);
+    repeat
+      InternetReadFile(hFile,@buffer,SizeOf(buffer),bytesRead);
+      BlockWrite(localFile,buffer,bytesRead);
+    until bytesRead = 0;
+    CloseFile(localFile);
+    result:=true;
+    InternetCloseHandle(hFile);
+  end;
+  InternetCloseHandle(hInet);
+end;
+
 function GetDLFreeSlot(): smallint;
 var i: smallint;
 begin
   result:=0;
-  for i:=5 downto 1 do
+  for i:=10 downto 1 do
   begin
     if not(Assigned(fIDHTTP[i])) then
     begin
@@ -250,6 +359,156 @@ begin
     else if not(IsUserAdmin()) then
       LogAdd('Can´t save file! Suggestion: Run this application as Administrator!')
     else if not(result) then
+      LogAdd('Unknown error while downloading file!');
+    FreeAndNil(Stream[availabledl]);
+    FreeAndNil(fIDHTTP[availabledl]);
+  end;
+end;
+
+function functions.DownloadFile(const url: string; const destinationFileName: string; surpressmsg: boolean): boolean;
+var
+  availabledl: smallint;
+begin
+  result:=false;
+  availabledl:=GetDLFreeSlot();
+  if not(availabledl=0) then
+  begin
+    fIDHTTP[availabledl]:=TIDHTTP.Create();
+    fIDHTTP[availabledl].HandleRedirects:=true;
+    fIDHTTP[availabledl].AllowCookies:=false;
+    fIDHTTP[availabledl].Request.UserAgent:='GeoOSScript Mozilla/4.0';
+    fIDHTTP[availabledl].Request.Connection:='Keep-Alive';
+    fIDHTTP[availabledl].Request.ProxyConnection:='Keep-Alive';
+    fIDHTTP[availabledl].Request.CacheControl:='no-cache';
+    Stream[availabledl]:=TMemoryStream.Create();
+    try
+      fIDHTTP[availabledl].Head(url);
+    except
+       On E: Exception do
+        begin
+          result:=false;
+          if not(surpressmsg) then
+            LogAdd('Could not download file, error 404!');
+        end;
+    end;
+    if(fIDHTTP[availabledl].Response.ResponseCode=200) then
+    begin
+      try
+        fIDHTTP[availabledl].Get(url, Stream[availabledl]);
+        if FileExists(destinationFileName) then
+          DeleteFile(PWideChar(destinationFileName));
+        Stream[availabledl].SaveToFile(destinationFileName);
+        result:=true;
+      except
+        On E: Exception do
+        begin
+          result:=false;
+          if not(surpressmsg) then
+            LogAdd('Could not download file, not response code 200!');
+        end;
+      end;
+    end;
+    if(FileExists(destinationFileName)) then
+    begin
+      if not(surpressmsg) then
+        LogAdd('OK');
+    end
+    else if not(IsUserAdmin()) then
+    begin
+      if not(surpressmsg) then
+        LogAdd('Can´t save file! Suggestion: Run this application as Administrator!');
+    end
+    else if not(result) then
+    begin
+      if not(surpressmsg) then
+        LogAdd('Unknown error while downloading file!');
+    end;
+    FreeAndNil(Stream[availabledl]);
+    FreeAndNil(fIDHTTP[availabledl]);
+  end;
+end;
+
+function functions.DownloadFileGet(const url: string; const destinationFileName: string): boolean;
+var
+  availabledl: smallint;
+begin
+  result:=false;
+  availabledl:=GetDLFreeSlot();
+  if not(availabledl=0) then
+  begin
+    fIDHTTP[availabledl]:=TIDHTTP.Create();
+    fIDHTTP[availabledl].HandleRedirects:=true;
+    fIDHTTP[availabledl].AllowCookies:=false;
+    fIDHTTP[availabledl].Request.UserAgent:='GeoOSScript Mozilla/4.0';
+    fIDHTTP[availabledl].Request.Connection:='Keep-Alive';
+    fIDHTTP[availabledl].Request.ProxyConnection:='Keep-Alive';
+    fIDHTTP[availabledl].Request.CacheControl:='no-cache';
+    Stream[availabledl]:=TMemoryStream.Create();
+    try
+      fIDHTTP[availabledl].Get(url, Stream[availabledl]);
+      if FileExists(destinationFileName) then
+      DeleteFile(PWideChar(destinationFileName));
+      Stream[availabledl].SaveToFile(destinationFileName);
+      result:=true;
+    except
+      On E: Exception do
+      begin
+        result:=false;
+        LogAdd('Could not download file, not response code 200!');
+      end;
+    end;
+    if(FileExists(destinationFileName)) then
+      LogAdd('OK')
+    else if not(IsUserAdmin()) then
+      LogAdd('Can´t save file! Suggestion: Run this application as Administrator!')
+    else if not(result) then
+      LogAdd('Unknown error while downloading file!');
+    FreeAndNil(Stream[availabledl]);
+    FreeAndNil(fIDHTTP[availabledl]);
+  end;
+end;
+
+function functions.DownloadFileToStream(const url: string): TMemoryStream;
+var
+  availabledl: smallint;
+begin
+  result:=nil;
+  availabledl:=GetDLFreeSlot();
+  if not(availabledl=0) then
+  begin
+    fIDHTTP[availabledl]:=TIDHTTP.Create();
+    fIDHTTP[availabledl].HandleRedirects:=true;
+    fIDHTTP[availabledl].AllowCookies:=false;
+    fIDHTTP[availabledl].Request.UserAgent:='GeoOSScript Mozilla/4.0';
+    fIDHTTP[availabledl].Request.Connection:='Keep-Alive';
+    fIDHTTP[availabledl].Request.ProxyConnection:='Keep-Alive';
+    fIDHTTP[availabledl].Request.CacheControl:='no-cache';
+    Stream[availabledl]:=TMemoryStream.Create();
+    try
+      fIDHTTP[availabledl].Head(url);
+    except
+       On E: Exception do
+        begin
+          result:=nil;
+          LogAdd('Could not download file, error 404!');
+        end;
+    end;
+    if(fIDHTTP[availabledl].Response.ResponseCode=200) then
+    begin
+      try
+        fIDHTTP[availabledl].Get(url, Stream[availabledl]);
+        result:=Stream[availabledl];
+      except
+        On E: Exception do
+        begin
+          result:=nil;
+          LogAdd('Could not download file, not response code 200!');
+        end;
+      end;
+    end;
+    if not(IsUserAdmin()) then
+      LogAdd('Can´t save file! Suggestion: Run this application as Administrator!')
+    else if(result = nil) then
       LogAdd('Unknown error while downloading file!');
     FreeAndNil(Stream[availabledl]);
     FreeAndNil(fIDHTTP[availabledl]);
@@ -350,33 +609,6 @@ begin
     result:='';
 end;
 
-function functions.CheckVersionInOnlineStore(programname: string; currversion: string; beta: boolean): string;
-var
-  fFile: TStringList;
-  i: integer;
-begin
-  fFile:=TStringList.Create();
-  result:='0';
-  i:=0;
-  if(beta) then
-    DownloadFile('http://geodar.hys.cz/geoos/beta/'+programname+'.gos',GetLocalDir()+programname+'.gos')
-  else
-    DownloadFile('http://geodar.hys.cz/geoos/'+programname+'.gos',GetLocalDir()+programname+'.gos');
-  if(FileExists(GetLocalDir()+programname+'.gos')) then
-  begin
-    fFile.LoadFromFile(GetLocalDir()+programname+'.gos');
-    DeleteFile(GetLocalDir()+programname+'.gos');
-    while ((i<fFile.Count) and (result='0')) do
-    begin
-      if(ReadCommand(fFile.Strings[i])='version') then
-        if not(CommandParams(fFile.Strings[i])=currversion) then
-          result:=CommandParams(fFile.Strings[i]);
-      inc(i);
-    end;
-  end;
-  fFile.Free;
-end;
-
 function functions.CheckDirAndDownloadFile(url: string; path: string): boolean;
 var
   splitdir:  TStringList;
@@ -424,20 +656,20 @@ begin
   result:=true;
 end;
 
-function functions.IsRemote(param: string): boolean; //Local -> false | Remote -> true
-begin
-  if(MidStr(param,1,7)='http://') then result:=true        //accepting http:// as remote
-  else if(MidStr(param,1,8)='https://') then result:=true  //accepting https:// as remote
-  else if(MidStr(param,1,6)='ftp://') then result:=true    //accepting ftp:// as remote
-  else result:=false; //everything else is in local computer
-end;
-
 function functions.GetPreqFromRemote(param: string): string;
 begin
   if(MidStr(param,1,7)='http://') then result:='http://'
   else if(MidStr(param,1,8)='https://') then result:='https://'
   else if(MidStr(param,1,6)='ftp://') then result:='ftp://'
   else result:='';
+end;
+
+function functions.IsRemote(param: string): boolean; //Local -> false | Remote -> true
+begin
+  if(GetPreqFromRemote(param)='http://') then result:=true        //accepting http:// as remote
+  else if(GetPreqFromRemote(param)='https://') then result:=true  //accepting https:// as remote
+  else if(GetPreqFromRemote(param)='ftp://') then result:=true    //accepting ftp:// as remote
+  else result:=false; //everything else is in local computer
 end;
 
 function functions.NotHttps(param: string): boolean;
@@ -598,7 +830,7 @@ begin
     {$IFDEF CONSOLE}
     TerminateMe();
     {$ELSE}
-    LogAdd('Can´t terminate program! Shutdown it manually!');
+    LogAdd('Can´t terminate program! Shut it down manually!');
     {$ENDIF}
   end
   else if(empty(par)) then // if parameter is missing, don't do anything
@@ -661,6 +893,11 @@ begin
     RunGOSCommand('Log='+par);
     {$ENDIF}
   end
+  else if(comm='logsave') then //save log to a specified file
+  begin
+    LogAdd('Log saved as "'+par+'".');
+    _log.SaveToFile(GetLocalDir()+par);
+  end
   else if(comm='version') then //Write current script version
     LogAdd('Script´s Version: '+par)
   else if(comm='promptyesno') then //Ask user to do some command, if 'y' is prompt that command will be used
@@ -677,12 +914,10 @@ begin
     begin
       if not(empty(CommandParams(line,1,1))) then //support for Execute
       begin
-        LogAdd('You prompt: '+CommandParams(line,1)+'='+CommandParams(line,0,1)+','+CommandParams(line,1,1));
         RunGOSCommand(CommandParams(line,1)+'='+CommandParams(line,0,1)+','+CommandParams(line,1,1));
       end
       else
       begin
-        LogAdd('You prompt: '+CommandParams(line,1)+'='+CommandParams(line,0,1));
         RunGOSCommand(CommandParams(line,1)+'='+CommandParams(line,0,1));
       end;
     end
@@ -712,6 +947,11 @@ begin
       deletefile(PWChar(GetLocalDir()+par));
       LogAdd('File "'+GetLocalDir()+par+'" removed.');
     end;
+  end
+  else if(comm='killtask') then //turn other process off
+  begin
+    KillTask(par);
+    LogAdd('Killing task "'+par+'".');
   end
   else if(comm='setregistry') then //set value into windows registry
   begin
@@ -746,7 +986,7 @@ begin
       result:=true;
     end
     else
-      LogAdd('Modification in Registry not completed! Something is mission or invalid key.');
+      LogAdd('Modification in Registry not completed! Something is missing or invalid key.');
   end
   else if(comm='copyfile') then //Copy File
   begin
@@ -846,25 +1086,35 @@ begin
   begin
     if(ZipHandler.IsValid(par)) then
     begin
-      ZipHandler.ExtractZipFile(par,GetLocalDir()+'geoos\');
-      LogAdd('File "'+par+'" extracted.');
+      if(FileExists(GetLocalDir()+par)) then
+      begin
+        ZipHandler.ExtractZipFile(par,GetLocalDir()+'geoos\');
+        LogAdd('File "'+par+'" extracted.');
+      end
+      else
+        LogAdd('File "'+par+'" does not exists.');
     end
     else
       LogAdd('File "'+par+'" is not valid zip file!');
-  end
-  else if(comm='makezipfile') then
-  begin
-    //todo
   end
   else if(comm='zipextractto') then
   begin
     if(ZipHandler.IsValid(CommandParams(line,0))) then
     begin
-      ZipHandler.ExtractZipFile(CommandParams(line,0),GetLocalDir()+CommandParams(line,1));
-      LogAdd('File "'+CommandParams(line,0)+'" extracted to "'+CommandParams(line,1)+'".');
+      if(FileExists(GetLocalDir()+par)) then
+      begin
+        ZipHandler.ExtractZipFile(CommandParams(line,0),GetLocalDir()+CommandParams(line,1));
+        LogAdd('File "'+CommandParams(line,0)+'" extracted to "'+CommandParams(line,1)+'".');
+      end
+      else
+        LogAdd('File "'+CommandParams(line,0)+'" does not exists.');
     end
     else
       LogAdd('File "'+CommandParams(line,0)+'" is not valid zip file!');
+  end
+  else if(comm='updatetext') then
+  begin
+    LogAdd('Update Text: '+par);
   end
   else if(comm='runfile') then //run GeoOS script file within script
   begin
