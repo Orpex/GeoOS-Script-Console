@@ -1,4 +1,18 @@
-﻿GeoOS Script in Console
+GeoOS Script in Console, works cross-platform Windows Systems.
+
+Supported Windows systems: 98/XP/2000/Vista/7/8 Developer preview/8 Customer Preview
+Works on any version (Starter, Home, Proffessional, Ultimate, etc.)
+Tested on all of them.
+
+Req.: Windows system with internet connection
+
+Want help? We will help you understand our scripting!
+Open an Issue, if you found an error, or need help with your code.
+Fork, Edit and post me back your results on the main repository!
+
+For script tutorials or list of functions, go to the "Wiki" section.
+
+Thank You for using GeoOS Script.
 
 Open Source Script Language.
-Console version of https://github.com/Geodar/GeoOS-Script
+Console version of https://github.com/Geodar/GeoOS-Script (Development ended)
